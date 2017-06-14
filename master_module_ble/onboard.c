@@ -1,6 +1,6 @@
 
 /** @file   onboard.c
- *  @brief  This driver contains functions for working with onboarding process 
+ *  @brief  This driver contains functions for working with onboarding process
  *          and corresponding macros, constants,and global variables.
  *
  *  @author MikroElektronika
@@ -15,7 +15,7 @@
 
 #define APPL_LOG        debug_log      /**< Debug logger macro that will be used in this file to do logging of debug information over UART. */
 
-extern const uint8_t    SENSORS_DEVICE_NAME[NUMBER_OF_SENSORS][BLE_DEVNAME_MAX_LEN + 1];
+extern const uint8_t    SENSORS_DEVICE_NAME[MAX_CLIENTS][BLE_DEVNAME_MAX_LEN + 1];
 extern passkey_t        sensors_passkey[MAX_CLIENTS];
 
 const  uint16_t         ONBOARD_CHAR_UUIDS[NUMBER_OF_ONBOARD_CHARACTERISTICS] = LIST_OF_ONBOARD_CHARS;
@@ -33,7 +33,7 @@ static onboard_characteristics_t current_char;
  *
  *  @return  Void.
  */
- 
+
 void onboard_set_mode(onboard_mode_t new_mode)
 {
     onboard_mode = new_mode;
@@ -95,25 +95,25 @@ void onboard_on_send_complete(void)
         case ONBOARD_STATE_SENDING_WIFI_SSID:
         case ONBOARD_STATE_SENDING_WIFI_PASS:
         case ONBOARD_STATE_SENDING_MASTER_MODULE_ID:
-				case ONBOARD_STATE_SENDING_MASTER_MODULE_SEC:	
+				case ONBOARD_STATE_SENDING_MASTER_MODULE_SEC:
         {
-            client_t * p_client;  
+            client_t * p_client;
             p_client = find_client_by_dev_name(SENSORS_DEVICE_NAME[DATA_ID_DEV_CFG_APP], 0);
             if(p_client != NULL)
             {
                 read_characteristic_value(p_client, ONBOARD_CHAR_UUIDS[current_char++]);
             }
-            
+
             onboard_state++;
             break;
         }
-				
-        case ONBOARD_STATE_SENDING_MASTER_MODULE_URL: 
+
+        case ONBOARD_STATE_SENDING_MASTER_MODULE_URL:
         {
             onboard_state++;
             break;
         }
-        
+
         default:{}
     }
 }
@@ -127,12 +127,12 @@ void onboard_on_send_complete(void)
  */
 
 void onboard_on_store_complete(void)
-{ 
-    client_t * p_client;  
-      
+{
+    client_t * p_client;
+
     switch(onboard_state)
     {
-      
+
         case ONBOARD_STATE_STORING_HTU_PASS:
         {
             if(onboard_store_passkey_from_ble(DATA_ID_DEV_GYRO, NULL) == false)
@@ -141,7 +141,7 @@ void onboard_on_store_complete(void)
             }
             break;
         }
-        
+
         case ONBOARD_STATE_STORING_GYRO_PASS:
         {
             if(onboard_store_passkey_from_ble(DATA_ID_DEV_LIGHT, NULL) == false)
@@ -150,7 +150,7 @@ void onboard_on_store_complete(void)
             }
             break;
         }
-        
+
         case ONBOARD_STATE_STORING_SOUND_PASS:
         {
             if(onboard_store_passkey_from_ble(DATA_ID_DEV_BRIDGE, NULL) == false)
@@ -159,7 +159,7 @@ void onboard_on_store_complete(void)
             }
             break;
         }
-				
+
 				case ONBOARD_STATE_STORING_BRIDGE_PASS:
         {
             if(onboard_store_passkey_from_ble(DATA_ID_DEV_IR, NULL) == false)
@@ -168,9 +168,9 @@ void onboard_on_store_complete(void)
             }
             break;
         }
-      
+
         case ONBOARD_STATE_STORING_LIGHT_PASS:
-        case ONBOARD_STATE_STORING_IR_PASS: 
+        case ONBOARD_STATE_STORING_IR_PASS:
         {
             p_client = find_client_by_dev_name(SENSORS_DEVICE_NAME[DATA_ID_DEV_CFG_APP], 0);
             if(p_client != NULL)
@@ -179,8 +179,8 @@ void onboard_on_store_complete(void)
             }
             onboard_state++;
             break;
-        } 
-        
+        }
+
         default:
         {
             spi_create_tx_packet(DATA_ID_DEV_CFG_APP, FIELD_ID_CONFIG_ACK, OPERATION_WRITE, NULL, 0);
@@ -198,7 +198,7 @@ void onboard_on_store_complete(void)
 
 bool onboard_store_passkey_from_wifi(uint8_t passkey_index, uint8_t * data)
 {
-    memcpy((uint8_t*)&sensors_passkey[passkey_index], data, 6); 
+    memcpy((uint8_t*)&sensors_passkey[passkey_index], data, 6);
     return pstorage_driver_request_store((uint8_t*)(&sensors_passkey[passkey_index]));
 }
 
@@ -214,17 +214,17 @@ bool onboard_store_passkey_from_ble(uint8_t passkey_index, uint8_t * data)
 {
     static uint8_t * current_pass;
 	  static uint8_t   valid_flag;
-    
+
     onboard_state++;
-  
+
     if(data != NULL)
     {
         current_pass = data;
 			  valid_flag = data[3*ONBOARD_SENSOR_PASS_LEN];
-			
+
         if(valid_flag & 0x1)
         {
-            memcpy((uint8_t*)&sensors_passkey[passkey_index], current_pass, 6); 
+            memcpy((uint8_t*)&sensors_passkey[passkey_index], current_pass, 6);
             return pstorage_driver_request_store((uint8_t*)(&sensors_passkey[passkey_index]));
         }
         else
@@ -237,10 +237,10 @@ bool onboard_store_passkey_from_ble(uint8_t passkey_index, uint8_t * data)
     {
         current_pass += ONBOARD_SENSOR_PASS_LEN;
 			  valid_flag >>= 1;
-			
+
         if(valid_flag & 0x1)
         {
-            memcpy((uint8_t*)&sensors_passkey[passkey_index], current_pass, 6); 
+            memcpy((uint8_t*)&sensors_passkey[passkey_index], current_pass, 6);
             return pstorage_driver_request_store((uint8_t*)(&sensors_passkey[passkey_index]));
         }
         else
@@ -271,7 +271,7 @@ void onboard_parse_data(uint8_t field_id, uint8_t * data, uint8_t len)
             }
             break;
         }
-        
+
         case ONBOARD_STATE_WAIT_SOUND_BRIDGE_IR_PASS:
         {
             if(onboard_store_passkey_from_ble(DATA_ID_DEV_SOUND, data) == false)
@@ -280,7 +280,7 @@ void onboard_parse_data(uint8_t field_id, uint8_t * data, uint8_t len)
             }
             break;
         }
-        
+
         case ONBOARD_STATE_WAIT_WIFI_SSID:
         {
             onboard_state++;
@@ -294,7 +294,7 @@ void onboard_parse_data(uint8_t field_id, uint8_t * data, uint8_t len)
             }
             break;
         }
-        
+
         case ONBOARD_STATE_WAIT_WIFI_PASS:
         {
             onboard_state++;
@@ -308,7 +308,7 @@ void onboard_parse_data(uint8_t field_id, uint8_t * data, uint8_t len)
             }
             break;
         }
-        
+
         case ONBOARD_STATE_WAIT_MASTER_MODULE_ID:
         {
             onboard_state++;
@@ -322,7 +322,7 @@ void onboard_parse_data(uint8_t field_id, uint8_t * data, uint8_t len)
             }
             break;
         }
-        
+
         case ONBOARD_STATE_WAIT_MASTER_MODULE_SEC:
         {
             onboard_state++;
@@ -336,7 +336,7 @@ void onboard_parse_data(uint8_t field_id, uint8_t * data, uint8_t len)
             }
             break;
         }
-				
+
 				case ONBOARD_STATE_WAIT_MASTER_MODULE_URL:
         {
             onboard_state++;
@@ -350,14 +350,14 @@ void onboard_parse_data(uint8_t field_id, uint8_t * data, uint8_t len)
             }
             break;
         }
-        
+
         default:
         {
             return;
         }
     }
 }
-  
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -367,16 +367,16 @@ void onboard_parse_data(uint8_t field_id, uint8_t * data, uint8_t len)
  */
 
 void onboard_state_handle(void)
-{  
-    client_t * p_client;  
-    
+{
+    client_t * p_client;
+
     if(onboard_state == ONBOARD_STATE_IDLE)
     {
         return;
     }
-  
+
     p_client = find_client_by_dev_name(SENSORS_DEVICE_NAME[DATA_ID_DEV_CFG_APP], 0);
-    if( 
+    if(
         (p_client == NULL) ||
         ((p_client->state != STATE_RUNNING) && (p_client->state != STATE_WAIT_READ_RSP))
       )
@@ -391,41 +391,41 @@ void onboard_state_handle(void)
         {
             onboard_set_state(ONBOARD_STATE_ERROR);
         }
-        
+
     }
-  
+
     switch(onboard_state)
     {
         case ONBOARD_STATE_IDLE:
         {
             break;
         }
-        
+
         case ONBOARD_STATE_START:
         {
-            APPL_LOG("[OB]: Start config.\r\n");  
+            APPL_LOG("[OB]: Start config.\r\n");
             current_char = ONBOARD_CHAR_INDEX_HTU_GYRO_LIGHT_PASS;
             read_characteristic_value(p_client, ONBOARD_CHAR_UUIDS[current_char++]);
             onboard_set_state(ONBOARD_STATE_WAIT_HTU_GYRO_LIGHT_PASS);
             break;
         }
-        
+
         case ONBOARD_STATE_ERROR:
         {
-            APPL_LOG("[OB]: Config ERROR.\r\n");  
+            APPL_LOG("[OB]: Config ERROR.\r\n");
             spi_create_tx_packet(DATA_ID_DEV_CFG_APP, FIELD_ID_CONFIG_ERROR, OPERATION_WRITE, NULL, 0);
             onboard_set_state(ONBOARD_STATE_IDLE);
             break;
         }
-        
+
         case ONBOARD_STATE_COMPLETE:
         {
-            APPL_LOG("[OB]: Config complete.\r\n"); 
+            APPL_LOG("[OB]: Config complete.\r\n");
             spi_create_tx_packet(DATA_ID_DEV_CFG_APP, FIELD_ID_CONFIG_COMPLETE, OPERATION_WRITE, NULL, 0);
             onboard_set_state(ONBOARD_STATE_IDLE);
             break;
         }
-        
+
         default:{}
     }
 }

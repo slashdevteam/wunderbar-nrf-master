@@ -28,10 +28,6 @@
 #include "wunderbar_common.h"
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-#define MAX_CLIENTS                        DEVICE_MANAGER_MAX_CONNECTIONS  /**< Max number of clients. */
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /**@brief Client states. */
 
 typedef enum
@@ -40,12 +36,12 @@ typedef enum
     STATE_DEVICE_IDENTIFYING   = 1,    /**< Check Wunderbar ID. */
     STATE_NOTIF_ENABLE         = 2,    /**< State where the request to enable notifications is sent to the peer. . */
     STATE_RUNNING              = 3,    /**< Wait for read response. */
-    STATE_WAIT_READ_RSP        = 4,    /**< Running state. */ 
-    STATE_WAIT_WRITE_RSP       = 5,    /**< Wait for write response. */ 
-    STATE_DISCONNECTING        = 6,    /**< Disconnect request is sent. */  
+    STATE_WAIT_READ_RSP        = 4,    /**< Running state. */
+    STATE_WAIT_WRITE_RSP       = 5,    /**< Wait for write response. */
+    STATE_DISCONNECTING        = 6,    /**< Disconnect request is sent. */
     STATE_IDLE                 = 7,    /**< Idle state. */
     STATE_ERROR                = 8     /**< Error state. */
-} 
+}
 client_state_t;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -56,7 +52,7 @@ typedef struct
     const uint8_t * device_name;
     ble_gap_addr_t  peer_addr;
 	  bool            bonded_flag;
-} 
+}
 current_conn_device_t;
 
 
@@ -100,7 +96,7 @@ uint8_t get_active_client_number(void);
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /**@brief Funtion for initializing the module.
  */
- 
+
 void client_handling_init(void);
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -110,7 +106,7 @@ void client_handling_init(void);
  *
  * @return  The current number of clients.
  */
- 
+
 uint8_t client_handling_count(void);
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -124,7 +120,7 @@ uint8_t client_handling_count(void);
  * @param[in] conn_handle Identifies link for which client is created.
  * @return NRF_SUCCESS on success, any other on failure.
  */
- 
+
 uint32_t client_handling_create(const dm_handle_t * p_handle, uint16_t conn_handle, current_conn_device_t * current_conn_device);
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -137,7 +133,7 @@ uint32_t client_handling_create(const dm_handle_t * p_handle, uint16_t conn_hand
  *
  * @return NRF_SUCCESS on success, any other on failure.
  */
- 
+
 uint32_t client_handling_destroy(const dm_handle_t * p_handle);
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -147,7 +143,7 @@ uint32_t client_handling_destroy(const dm_handle_t * p_handle);
  *
  * @param[in] p_ble_evt  Event to be handled.
  */
- 
+
 void client_handling_ble_evt_handler(ble_evt_t * p_ble_evt);
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -159,7 +155,7 @@ void client_handling_ble_evt_handler(ble_evt_t * p_ble_evt);
  * @param[in] p_event        Event to be handled.
  * @param[in] event_result   Event result indicating whether a procedure was successful or not.
  */
- 
+
 api_result_t client_handling_dm_event_handler(const dm_handle_t    * p_handle,
                                               const dm_event_t     * p_event,
                                               const api_result_t     event_result);
