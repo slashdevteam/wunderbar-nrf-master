@@ -90,38 +90,38 @@ __Vectors:
     .long   SysTick_Handler             /* SysTick Handler */
 
   /* External Interrupts */
-    .long   POWER_CLOCK_IRQHandler       /*POWER_CLOCK */
-    .long   RADIO_IRQHandler         /*RADIO */
-    .long   UART0_IRQHandler         /*UART0 */
-    .long   SPI0_TWI0_IRQHandler         /*SPI0_TWI0 */
-    .long   SPI1_TWI1_IRQHandler         /*SPI1_TWI1 */
-    .long   0        /*Reserved */
-    .long   GPIOTE_IRQHandler        /*GPIOTE */
-    .long   ADC_IRQHandler       /*ADC */
-    .long   TIMER0_IRQHandler        /*TIMER0 */
-    .long   TIMER1_IRQHandler        /*TIMER1 */
-    .long   TIMER2_IRQHandler        /*TIMER2 */
-    .long   RTC0_IRQHandler      /*RTC0 */
-    .long   TEMP_IRQHandler      /*TEMP */
-    .long   RNG_IRQHandler       /*RNG */
-    .long   ECB_IRQHandler       /*ECB */
-    .long   CCM_AAR_IRQHandler       /*CCM_AAR */
-    .long   WDT_IRQHandler       /*WDT */
-    .long   RTC1_IRQHandler      /*RTC1 */
-    .long   QDEC_IRQHandler      /*QDEC */
-    .long   LPCOMP_IRQHandler        /*LPCOMP */
-    .long   SWI0_IRQHandler      /*SWI0 */
-    .long   SWI1_IRQHandler      /*SWI1 */
-    .long   SWI2_IRQHandler      /*SWI2 */
-    .long   SWI3_IRQHandler      /*SWI3 */
-    .long   SWI4_IRQHandler      /*SWI4 */
-    .long   SWI5_IRQHandler      /*SWI5 */
-    .long   0        /*Reserved */
-    .long   0        /*Reserved */
-    .long   0        /*Reserved */
-    .long   0        /*Reserved */
-    .long   0        /*Reserved */
-    .long   0        /*Reserved */
+    .long 	POWER_CLOCK_IRQHandler		 /*POWER_CLOCK */
+    .long 	RADIO_IRQHandler		 /*RADIO */
+    .long 	UART0_IRQHandler		 /*UART0 */
+    .long 	SPI0_TWI0_IRQHandler		 /*SPI0_TWI0 */
+    .long 	SPI1_TWI1_IRQHandler		 /*SPI1_TWI1 */
+    .long 	0		 /*Reserved */
+    .long 	GPIOTE_IRQHandler		 /*GPIOTE */
+    .long 	ADC_IRQHandler		 /*ADC */
+    .long 	TIMER0_IRQHandler		 /*TIMER0 */
+    .long 	TIMER1_IRQHandler		 /*TIMER1 */
+    .long 	TIMER2_IRQHandler		 /*TIMER2 */
+    .long 	RTC0_IRQHandler		 /*RTC0 */
+    .long 	TEMP_IRQHandler		 /*TEMP */
+    .long 	RNG_IRQHandler		 /*RNG */
+    .long 	ECB_IRQHandler		 /*ECB */
+    .long 	CCM_AAR_IRQHandler		 /*CCM_AAR */
+    .long 	WDT_IRQHandler		 /*WDT */
+    .long 	RTC1_IRQHandler		 /*RTC1 */
+    .long 	QDEC_IRQHandler		 /*QDEC */
+    .long 	LPCOMP_IRQHandler		 /*LPCOMP */
+    .long 	SWI0_IRQHandler		 /*SWI0 */
+    .long 	SWI1_IRQHandler		 /*SWI1 */
+    .long 	SWI2_IRQHandler		 /*SWI2 */
+    .long 	SWI3_IRQHandler		 /*SWI3 */
+    .long 	SWI4_IRQHandler		 /*SWI4 */
+    .long 	SWI5_IRQHandler		 /*SWI5 */
+    .long 	0		 /*Reserved */
+    .long 	0		 /*Reserved */
+    .long 	0		 /*Reserved */
+    .long 	0		 /*Reserved */
+    .long 	0		 /*Reserved */
+    .long 	0		 /*Reserved */
 
 
     .size    __Vectors, . - __Vectors
@@ -130,7 +130,7 @@ __Vectors:
 
     .equ    NRF_POWER_RAMON_ADDRESS,             0x40000524
     .equ    NRF_POWER_RAMONB_ADDRESS,            0x40000554
-    .equ    NRF_POWER_RAMONx_RAMxON_ONMODE_Msk,  0x3
+    .equ    NRF_POWER_RAMONx_RAMxON_ONMODE_Msk,  0x3  
 
     .text
     .thumb
@@ -143,7 +143,7 @@ Reset_Handler:
 
 /* Make sure ALL RAM banks are powered on */
     MOVS    R1, #NRF_POWER_RAMONx_RAMxON_ONMODE_Msk
-
+    
     LDR     R0, =NRF_POWER_RAMON_ADDRESS
     LDR     R2, [R0]
     ORRS    R2, R1
@@ -154,9 +154,8 @@ Reset_Handler:
     ORRS    R2, R1
     STR     R2, [R0]
 
-
 /*     Loop to copy data from read only memory to RAM. The ranges
- *      of copy from/to are specified by following symbols evaluated in
+ *      of copy from/to are specified by following symbols evaluated in 
  *      linker script.
  *      __etext: End of code section, i.e., begin of data sections to copy from.
  *      __data_start__/__data_end__: RAM address range that data should be
@@ -175,10 +174,10 @@ Reset_Handler:
     str    r0, [r2,r3]
     bgt    .LC1
 .LC0:
-
+    
     LDR     R0, =SystemInit
     BLX     R0
-    LDR     R0, =main
+    LDR     R0, =_start
     BX      R0
 
     .pool

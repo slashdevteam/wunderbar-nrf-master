@@ -1,0 +1,9 @@
+si 1
+speed 4000
+device nRF51822_xxAA
+halt
+erase
+loadfile ../s120_nrf51822/s120_nrf51822_1.0.1_softdevice.hex
+r
+g
+q

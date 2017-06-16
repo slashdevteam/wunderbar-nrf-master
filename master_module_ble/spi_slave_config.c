@@ -13,6 +13,7 @@
 #include "client_handling.h"
 #include "spi_slave.h"
 #include "app_error.h"
+#include "app_util_platform.h"
 #include "nrf_gpio.h"
 #include "gpio.h"
 #include "client_handling.h"

@@ -1,0 +1,8 @@
+si 1
+speed 4000
+device nRF51822_xxAA
+halt
+loadfile debug/wunderbar/nrf51822.hex
+r
+g
+q

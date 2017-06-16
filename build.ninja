@@ -4,7 +4,7 @@ ninja_required_version = 1.3
 
 GCC_ARM =
 target = nrf51822
-NORDIC_SDK_BASE = ../nrf51_sdk_v5_2_0_39364
+NORDIC_SDK_BASE = ../nrf51_sdk_v6_1_0_b2ec2e6
 NORDIC_SDK = $NORDIC_SDK_BASE/$target
 source_dir = .
 builddir = debug
@@ -23,7 +23,7 @@ ar = $GCC_ARM/arm-none-eabi-ar
 objcopy = $GCC_ARM/arm-none-eabi-objcopy
 objsize = $GCC_ARM/arm-none-eabi-size
 
-common_flags = -DNRF51 -D$board -DSOFTDEVICE_PRESENT -DDISABLE_WDOG=0 -DS$softdevice -DBOARD_NRF6310 $
+common_flags = -DNRF51 -D$board -DSOFTDEVICE_PRESENT -DDISABLE_WDOG=0 -DS$softdevice -DBOARD_CUSTOM -DBSP_SIMPLE $
     -DNDEBUG -mthumb -MP -mcpu=cortex-m0 -Wall -ffunction-sections $
     -fdata-sections -ffreestanding -fno-builtin -D__HEAP_SIZE=10 -DBLE_STACK_SUPPORT_REQD $
     -mapcs -Werror -flto -fdevirtualize -fwhole-program -fno-common -Og -g $
@@ -36,6 +36,7 @@ include_flags = -I$source_dir $
    -I$NORDIC_SDK_BASE/s${softdevice}_${target}/s120_nrf51822_1.0.1_API/include $
    -I$NORDIC_SDK/Include $
    -I$NORDIC_SDK/Include/ble $
+   -I$NORDIC_SDK/Include/ble/device_manager $
    -I$NORDIC_SDK/Include/ble/ble_services $
    -I$NORDIC_SDK/Include/app_common $
    -I$NORDIC_SDK/Include/sdk $
@@ -80,8 +81,11 @@ rule hexobj
   description = HEX $in
 
 rule flash
-  command = echo "halt\nloadfile $in\nr\ng\nq" > jlinkcmd.jlink && JLinkExe -device $device -if SWD -speed 4000 $
-    -commanderscript jlinkcmd.jlink
+  command = JLinkExe -commanderscript flashnrf.jlink
+  description = FLASH $in
+
+rule flashsd
+  command = JLinkExe -commanderscript flashs120softdevice.jlink
   description = FLASH $in
 
 build $builddir/master_module_ble/main.o: cc $source_dir/master_module_ble/main.c
@@ -89,36 +93,38 @@ build $builddir/master_module_ble/onboard.o: cc $source_dir/master_module_ble/on
 build $builddir/master_module_ble/client_handling.o: cc $source_dir/master_module_ble/client_handling.c
 build $builddir/master_module_ble/spi_slave_config.o: cc $source_dir/master_module_ble/spi_slave_config.c
 build $builddir/wunderbar_common/wunderbar_common.o: cc $source_dir/wunderbar_common/wunderbar_common.c
-build $builddir/Source/device_manager/device_manager_central.o: cc $NORDIC_SDK/Source/device_manager/device_manager_central.c
+build $builddir/Source/ble/device_manager/device_manager_central.o: cc $NORDIC_SDK/Source/ble/device_manager/device_manager_central.c
 build $builddir/Source/templates/system_nrf51.o: cc $NORDIC_SDK/Source/templates/system_nrf51.c
 build $builddir/startup_nrf51.o: as $source_dir/startup_nrf51.s
 build $builddir/common/pstorage_driver.o: cc $source_dir/common/pstorage_driver.c
 build $builddir/common/ble_db_discovery.o: cc $source_dir/common/ble_db_discovery.c
+build $builddir/common/debug.o: cc $source_dir/common/debug.c
 build $builddir/common/gpio.o: cc $source_dir/common/gpio.c
 build $builddir/Source/app_common/pstorage.o: cc $NORDIC_SDK/Source/app_common/pstorage.c
 build $builddir/Source/sd_common/softdevice_handler.o: cc $NORDIC_SDK/Source/sd_common/softdevice_handler.c
 
 build $builddir/$board/$bin_name: link $
     $builddir/master_module_ble/main.o $
+    $builddir/Source/templates/system_nrf51.o $
+    $builddir/common/debug.o $
+    $builddir/Source/sd_common/softdevice_handler.o $
+    $builddir/Source/app_common/pstorage.o $
     $builddir/master_module_ble/onboard.o $
     $builddir/master_module_ble/client_handling.o $
-    $builddir/master_module_ble/spi_slave_config.o $
     $builddir/wunderbar_common/wunderbar_common.o $
-    $builddir/Source/device_manager/device_manager_central.o $
-    $builddir/Source/templates/system_nrf51.o $
-    $builddir/startup_nrf51.o $
-    $builddir/Source/app_common/pstorage.o $
+    $builddir/master_module_ble/spi_slave_config.o $
+    $builddir/common/pstorage_driver.o $
     $builddir/common/ble_db_discovery.o $
+    $builddir/Source/ble/device_manager/device_manager_central.o $
     $builddir/common/gpio.o $
-    $builddir/Source/sd_common/softdevice_handler.o $
-    $builddir/common/pstorage_driver.o
+    $builddir/startup_nrf51.o
 
 build $builddir/$board/$bin_name.hex: hexobj $
     $builddir/$board/$bin_name
 
 build flash: flash $builddir/$board/$bin_name.hex
 
-build flashsoftdevice: flash $softdevice_hex
+build flashsoftdevice: flashsd $softdevice_hex
 
 build nrf51822: phony $builddir/$board/$bin_name.hex
 
