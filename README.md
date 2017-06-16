@@ -3,7 +3,7 @@
 ## What's needed:
 - ninja - https://github.com/ninja-build/ninja
 - GCC for ARM - https://developer.arm.com/open-source/gnu-toolchain/gnu-rm/downloads
-~~- NRF SDK v5.2 - https://developer.nordicsemi.com/nRF5_SDK/nRF51_SDK_v5.x.x/~~
+- ~~NRF SDK v5.2 - https://developer.nordicsemi.com/nRF5_SDK/nRF51_SDK_v5.x.x/~~
 - NRF SDK v6.1 - https://developer.nordicsemi.com/nRF5_SDK/nRF51_SDK_v6.x.x/
 - NRF S120 v1.0.1 Softdevice - https://www.nordicsemi.com/eng/nordic/Products/nRF51822/S120-SD-v1/29098
 
