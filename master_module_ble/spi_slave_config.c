@@ -426,7 +426,7 @@ bool spi_slave_app_init(void)
 
     mode_mask = ((SPIS_CONFIG_CPOL_ActiveHigh << SPIS_CONFIG_CPOL_Pos) | (SPIS_CONFIG_CPHA_Trailing << SPIS_CONFIG_CPHA_Pos));
 
-    NRF_SPIS1->CONFIG = (mode_mask | (SPIS_CONFIG_ORDER_LsbFirst << SPIS_CONFIG_ORDER_Pos));
+    NRF_SPIS1->CONFIG = (mode_mask | (SPIS_CONFIG_ORDER_MsbFirst << SPIS_CONFIG_ORDER_Pos));
     NRF_SPIS1->DEF    = DEF_CHARACTER;
     NRF_SPIS1->ORC    = ORC_CHARACTER;
 
