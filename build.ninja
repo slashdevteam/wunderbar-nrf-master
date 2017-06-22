@@ -24,15 +24,17 @@ objcopy = $GCC_ARM/arm-none-eabi-objcopy
 objsize = $GCC_ARM/arm-none-eabi-size
 
 common_flags = -DNRF51 -D$board -DSOFTDEVICE_PRESENT -DDISABLE_WDOG=0 -DS$softdevice -DBOARD_CUSTOM -DBSP_SIMPLE $
-    -DNDEBUG -mthumb -MP -mcpu=cortex-m0 -Wall -ffunction-sections $
-    -fdata-sections -ffreestanding -fno-builtin -D__HEAP_SIZE=10 -DBLE_STACK_SUPPORT_REQD $
-    -mapcs -Werror -flto -fdevirtualize -fwhole-program -fno-common -Og -g $
-    -ggdb3 -DSWI_DISABLE0 -D$cpu -DNRF_SD_BLE_API_VERSION=2 -mfloat-abi=soft
+    -DNDEBUG -mthumb -MP -mcpu=cortex-m0 -Wall -ffunction-sections -D__STACK_SIZE=1024 $
+    -fdata-sections -ffreestanding -fno-builtin -D__HEAP_SIZE=0 -DBLE_STACK_SUPPORT_REQD $
+    -mapcs -Werror -flto -fdevirtualize -fwhole-program -fno-common  $
+    -DSWI_DISABLE0 -D$cpu -DNRF_SD_BLE_API_VERSION=2 -mfloat-abi=soft -DSEGGER_RTT_LOG $
+    -Og -g -ggdb3
 
 include_flags = -I$source_dir $
    -I$source_dir/master_module_ble $
    -I$source_dir/common $
    -I$source_dir/wunderbar_common $
+   -I$source_dir/segger $
    -I$NORDIC_SDK_BASE/s${softdevice}_${target}/s120_nrf51822_1.0.1_API/include $
    -I$NORDIC_SDK/Include $
    -I$NORDIC_SDK/Include/ble $
@@ -93,6 +95,10 @@ build $builddir/master_module_ble/onboard.o: cc $source_dir/master_module_ble/on
 build $builddir/master_module_ble/client_handling.o: cc $source_dir/master_module_ble/client_handling.c
 build $builddir/master_module_ble/spi_slave_config.o: cc $source_dir/master_module_ble/spi_slave_config.c
 build $builddir/wunderbar_common/wunderbar_common.o: cc $source_dir/wunderbar_common/wunderbar_common.c
+build $builddir/wunderbar_common/debug.o: cc $source_dir/wunderbar_common/debug.c
+build $builddir/segger/SEGGER_RTT.o: cc $source_dir/segger/SEGGER_RTT.c
+build $builddir/segger/SEGGER_RTT_printf.o: cc $source_dir/segger/SEGGER_RTT_printf.c
+build $builddir/segger/SEGGER_RTT_Syscalls_GCC.o: cc $source_dir/segger/SEGGER_RTT_Syscalls_GCC.c
 build $builddir/Source/ble/device_manager/device_manager_central.o: cc $NORDIC_SDK/Source/ble/device_manager/device_manager_central.c
 build $builddir/Source/templates/system_nrf51.o: cc $NORDIC_SDK/Source/templates/system_nrf51.c
 build $builddir/startup_nrf51.o: as $source_dir/startup_nrf51.s
@@ -112,6 +118,10 @@ build $builddir/$board/$bin_name: link $
     $builddir/master_module_ble/onboard.o $
     $builddir/master_module_ble/client_handling.o $
     $builddir/wunderbar_common/wunderbar_common.o $
+    $builddir/wunderbar_common/debug.o $
+    $builddir/segger/SEGGER_RTT.o $
+    $builddir/segger/SEGGER_RTT_printf.o $
+    $builddir/segger/SEGGER_RTT_Syscalls_GCC.o $
     $builddir/master_module_ble/spi_slave_config.o $
     $builddir/common/pstorage_driver.o $
     $builddir/common/ble_db_discovery.o $

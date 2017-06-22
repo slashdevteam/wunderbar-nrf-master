@@ -9,10 +9,10 @@
  * @ingroup experimental_api
  * @{
  * @brief Enables debug logs/ trace over UART.
- * @details Enables debug logs/ trace over UART. Tracing is enabled only if 
+ * @details Enables debug logs/ trace over UART. Tracing is enabled only if
  *          ENABLE_DEBUG_LOG_SUPPORT is defined in the project.
  */
-#ifdef ENABLE_DEBUG_LOG_SUPPORT
+#if defined ENABLE_DEBUG_LOG_SUPPORT
 /**
  * @brief Module Initialization.
  *
@@ -29,7 +29,14 @@ void debug_init(void);
  */
 #define debug_log printf
 void debug_dump(uint8_t * str, uint32_t len);
-#else // ENABLE_DEBUG_LOG_SUPPORT
+
+#elif defined SEGGER_RTT_LOG
+void debug_init(void);
+extern int RTT_printf(const char * sFormat, ...);
+#define debug_log RTT_printf
+#define debug_dump(...)
+
+#else
 #define debug_init(...)
 #define debug_log(...)
 #define debug_dump(...)

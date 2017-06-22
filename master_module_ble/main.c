@@ -744,6 +744,7 @@ bool pstorage_driver_init()
 
 static void power_manage(void)
 {
+    APPL_LOG("\r\n[AP]: power_manage\r\n\r\n");
     uint32_t err_code = sd_app_evt_wait();
     APP_ERROR_CHECK(err_code);
 }
@@ -758,9 +759,13 @@ int main(void)
 {
     // Initialization of various modules.
     debug_init();
+    APPL_LOG("\r\n[AP]: BLE inti\r\n\r\n");
     ble_stack_init();
+    APPL_LOG("\r\n[AP]: Client inti\r\n\r\n");
     client_handling_init();
+    APPL_LOG("\r\n[AP]: Pstorage inti\r\n\r\n");
     pstorage_driver_init();
+    APPL_LOG("\r\n[AP]: SPI inti\r\n\r\n");
     spi_slave_app_init();
 
 	  // Wait to go out of IDLE mode.
