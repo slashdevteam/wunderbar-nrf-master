@@ -127,7 +127,8 @@ const ble_gap_scan_params_t * m_scan_param;
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**@brief  Default values for sensors passkeys. These values are used if corresponding block of persistent storage is empty. */
-const uint8_t  DEFAULT_SENSOR_PASSKEY[8]   = {0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x00, 0x00};
+// const uint8_t  DEFAULT_SENSOR_PASSKEY[8]   = {0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x00, 0x00};
+const uint8_t  DEFAULT_SENSOR_PASSKEY[8]   = {0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31};
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -283,22 +284,22 @@ static api_result_t device_manager_event_handler(const dm_handle_t    * p_handle
                 sd_ble_gap_disconnect(p_handle->connection_id, 0x13);
             }
 
-            APPL_LOG("[AP]: [0x%02X] << DM_EVT_SECURITY_SETUP_COMPLETE\r\n", p_handle->connection_id);
+            APPL_LOG("[AP]: [0x%02X] << DM_EVT_SECURITY_SETUP_COMPLETE status: 0x%X\r\n", p_handle->connection_id, event_result);
 
             break;
         }
 
         case DM_EVT_SECURITY_SETUP:
         {
-            APPL_LOG("[AP]: [0x%02X] >> DM_EVT_SECURITY_SETUP\r\n", p_handle->connection_id);
-            APPL_LOG("[AP]: [0x%02X] << DM_EVT_SECURITY_SETUP\r\n", p_handle->connection_id);
+            APPL_LOG("[AP]: [0x%02X] >> DM_EVT_SECURITY_SETUP dummy\r\n", p_handle->connection_id);
+            APPL_LOG("[AP]: [0x%02X] << DM_EVT_SECURITY_SETUP dummy\r\n", p_handle->connection_id);
             break;
         }
 
         case DM_EVT_LINK_SECURED:
         {
-            APPL_LOG("[AP]: [0x%02X] >> DM_LINK_SECURED_IND, result 0x%08X\r\n", p_handle->connection_id, event_result);
-            APPL_LOG("[AP]: [0x%02X] << DM_LINK_SECURED_IND\r\n", p_handle->connection_id);
+            APPL_LOG("[AP]: [0x%02X] >> DM_LINK_SECURED_IND bonded: %s, result 0x%08X\r\n", p_handle->connection_id, current_conn_device.bonded_flag == true? "true":"false",event_result);
+            APPL_LOG("[AP]: [0x%02X] << DM_LINK_SECURED_IND bonded: %s\r\n", p_handle->connection_id, current_conn_device.bonded_flag == true? "true":"false");
 
 					  if(current_conn_device.bonded_flag == true)
 						{
@@ -420,6 +421,7 @@ static void on_ble_evt(ble_evt_t * p_ble_evt)
 {
     uint32_t         err_code;
     static uint16_t  service_uuid_list[3] = {SHORT_SERVICE_RELAYR_UUID, BLE_UUID_DEVICE_INFORMATION_SERVICE, BLE_UUID_BATTERY_SERVICE};
+    // static uint16_t  service_uuid_list[3] = {SHORT_SERVICE_CONFIG_UUID, BLE_UUID_DEVICE_INFORMATION_SERVICE, BLE_UUID_BATTERY_SERVICE};
 
     switch (p_ble_evt->header.evt_id)
     {
@@ -744,7 +746,7 @@ bool pstorage_driver_init()
 
 static void power_manage(void)
 {
-    APPL_LOG("\r\n[AP]: power_manage\r\n\r\n");
+    //APPL_LOG("\r\n[AP]: power_manage\r\n\r\n");
     uint32_t err_code = sd_app_evt_wait();
     APP_ERROR_CHECK(err_code);
 }

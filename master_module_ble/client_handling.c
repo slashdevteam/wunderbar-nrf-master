@@ -570,9 +570,11 @@ static void service_relayr_dsc_evt_handler(ble_db_discovery_evt_t * p_evt)
           // If discoverred device is not "WunderbarApp" config device.
 				  if(sensor_get_name_index(p_client->device_name) != DATA_ID_DEV_CFG_APP)
           {
-              char_to_read = find_char_by_uuid(CHARACTERISTIC_SENSOR_ID_UUID, p_client);
+              char_to_read = find_char_by_uuid(CHARACTERISTIC_SENSOR_DATA_R_UUID, p_client);
+              APPL_LOG("[CL]: Char to read 0x%X\r\n", (uint32_t)(char_to_read));
               if(char_to_read != NULL)
               {
+                   APPL_LOG("[CL]: Reading...\r\n");
                   err_code = sd_ble_gattc_read(p_client->srv_db.conn_handle, char_to_read->characteristic.handle_value, 0);
                   if(err_code == NRF_SUCCESS)
                   {
@@ -805,6 +807,23 @@ static void on_evt_read_rsp(ble_evt_t * p_ble_evt, client_t * p_client)
 
         case STATE_DEVICE_IDENTIFYING:
         {
+                APPL_LOG("Writing...\r\n");
+            // uint8_t  DEFAULT_SENSOR_PASSKEY[8]   = {0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x00, 0x00};
+            // ble_gattc_write_params_t  p_write_params = 0;
+
+            // p_write_params.write_op = BLE_GATT_OP_WRITE_REQ;
+
+            // char_to_read = find_char_by_uuid(CHARACTERISTIC_SENSOR_PASSKEY_UUID, p_client);
+            //   if(char_to_read != NULL)
+            //   {
+            //       err_code = sd_ble_gattc_write(p_client->srv_db.conn_handle, char_to_read->characteristic.handle_value, &p_write_params);
+            //       if(err_code == NRF_SUCCESS)
+            //       {
+            //           p_client->state = STATE_DEVICE_IDENTIFYING;
+            //       }
+            //       break;
+            //   }
+            //   write_characteristic_value(p_client, CHARACTERISTIC_SENSOR_PASSKEY_UUID, DEFAULT_SENSOR_PASSKEY,sizeof(DEFAULT_SENSOR_PASSKEY));
 
             memcpy((uint8_t *)p_client->id, (uint8_t *)&read_rsp->data, read_rsp->len);
             p_client->char_index = 0;
@@ -1051,6 +1070,7 @@ void client_handling_init(void)
 
     uuid.type = BLE_UUID_TYPE_BLE;
     uuid.uuid = SHORT_SERVICE_RELAYR_UUID;
+    // uuid.uuid = SHORT_SERVICE_CONFIG_UUID;
 
     err_code = ble_db_discovery_register(&uuid, service_relayr_dsc_evt_handler);
 

@@ -88,13 +88,21 @@
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**@brief Sensors Device Names. */
-#define DEVICE_NAME_HTU             "WunderbarHTU"
+#define DEVICE_NAME_HTU             "WunderbarH"
 #define DEVICE_NAME_GYRO            "WunderbarGYRO"
 #define DEVICE_NAME_LIGHT           "WunderbarLIGHT"
-#define DEVICE_NAME_MIC             "WunderbarMIC"
-#define DEVICE_NAME_BRIDGE          "WunderbarRATH"
-#define DEVICE_NAME_IR              "WunderbarIR"
+#define DEVICE_NAME_MIC             "WunderbarM"
+#define DEVICE_NAME_BRIDGE          "WunderbarR"
+#define DEVICE_NAME_IR              "WunderbarI"
 #define DEVICE_NAME_CFG_APP         "WunderbarApp"
+
+// #define DEVICE_NAME_HTU             "WunderbarHTU"
+// #define DEVICE_NAME_GYRO            "WunderbarGYRO"
+// #define DEVICE_NAME_LIGHT           "WunderbarLIGHT"
+// #define DEVICE_NAME_MIC             "WunderbarMIC"
+// #define DEVICE_NAME_BRIDGE          "WunderbarRATH"
+// #define DEVICE_NAME_IR              "WunderbarIR"
+// #define DEVICE_NAME_CFG_APP         "WunderbarApp"
 
 /**@brief Master Bluetooth Device Name. */
 #define DEVICE_NAME_MASTER_BLE      "WunderbarBar"
