@@ -13,8 +13,8 @@
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /**@brief Extern variables. */
 
-extern const uint8_t  SENSORS_DEVICE_NAME[MAX_CLIENTS][BLE_DEVNAME_MAX_LEN + 1];
-extern const uint16_t SENSOR_CHAR_UUIDS[NUMBER_OF_RELAYR_CHARACTERISTICS + 4];
+extern const uint8_t     client_device_names[MAX_CLIENTS][BLE_DEVNAME_MAX_LEN + 1];
+extern const char_desc_t client_char_uuids[MAX_CLIENTS][NUMBER_OF_RELAYR_CHARACTERISTICS + 4];
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -182,9 +182,9 @@ uint8_t sensors_get_msg_size(data_id_t sens_id, field_id_char_index_t msg_type)
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/**@brief This function returns index of entry in SENSORS_DEVICE_NAME array based on given address.
+/**@brief This function returns index of entry in client_device_names array based on given address.
  *
- * @param device_name Pointer to entry in SENSORS_DEVICE_NAME array.
+ * @param device_name Pointer to entry in client_device_names array.
  *
  * @return    Index of entry.
  * @return    0xFF if there is no such entry.
@@ -194,9 +194,9 @@ uint8_t sensors_get_msg_size(data_id_t sens_id, field_id_char_index_t msg_type)
 uint8_t sensor_get_name_index(const uint8_t * device_name)
 {
     data_id_t cnt;
-    for(cnt = DATA_ID_DEV_HTU; cnt <= DATA_ID_DEV_CFG_APP; cnt++)
+    for(cnt = DATA_ID_DEV_HTU; cnt <= MAX_CLIENTS; cnt++)
     {
-        if(device_name == SENSORS_DEVICE_NAME[cnt])
+        if(device_name == client_device_names[cnt])
         {
             return (uint8_t)cnt;
         }
@@ -207,7 +207,7 @@ uint8_t sensor_get_name_index(const uint8_t * device_name)
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/**@brief This function returns index of entry in SENSOR_CHAR_UUIDS array based on given UUID.
+/**@brief This function returns index of entry in client_char_uuids array based on given UUID.
  *
  * @param char_uuid UUID of characteristic.
  *
@@ -216,12 +216,12 @@ uint8_t sensor_get_name_index(const uint8_t * device_name)
  *
  */
 
-uint8_t sensor_get_char_index(uint16_t char_uuid)
+uint8_t sensor_get_char_index(uint8_t device_index, uint16_t char_uuid)
 {
     field_id_char_index_t cnt;
     for(cnt = FIELD_ID_CHAR_SENSOR_ID; cnt <= FIELD_ID_CHAR_FIRMWARE_REVISION; cnt++)
     {
-        if(char_uuid == SENSOR_CHAR_UUIDS[cnt])
+        if(char_uuid == client_char_uuids[device_index][cnt].uuid)
         {
             return (uint8_t)cnt;
         }

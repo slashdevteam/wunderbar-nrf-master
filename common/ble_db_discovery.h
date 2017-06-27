@@ -93,7 +93,7 @@ typedef struct
  */
 typedef struct
 {
-    ble_uuid_t                     srv_uuid;                                                 /**< UUID of the service. */    
+    ble_uuid_t                     srv_uuid;                                                 /**< UUID of the service. */
     uint8_t                        char_count;                                               /**< Number of characteristics present in the service. */
     ble_db_discovery_char_t        charateristics[BLE_DB_DISCOVERY_MAX_CHAR_PER_SRV];        /**< The array of information related to the characteristics present in the service. */
     ble_gattc_handle_range_t       handle_range;                                             /**< Service Handle Range. */
@@ -124,8 +124,8 @@ typedef struct
     ble_db_discovery_evt_type_t    evt_type;                                                  /**< Type of event. */
     uint16_t                       conn_handle;                                               /**< Handle of the connection for which this event has occurred. */
     union
-    {   
-        ble_db_discovery_srv_t     discovered_db;                                             /**< Structure containing the information about the GATT Database at the server. This will be filled when the event type is @ref BLE_DB_DISCOVERY_COMPLETE.*/     
+    {
+        ble_db_discovery_srv_t     discovered_db;                                             /**< Structure containing the information about the GATT Database at the server. This will be filled when the event type is @ref BLE_DB_DISCOVERY_COMPLETE.*/
         uint32_t                   err_code;                                                  /**< nRF Error code indicating the type of error occurred in the DB Discovery module. This will be filled when the event type is @ref BLE_DB_DISCOVERY_ERROR. */
     } params;
 } ble_db_discovery_evt_t;
@@ -192,9 +192,9 @@ uint32_t ble_db_discovery_close(void);
  * @param[in]   evt_handler     Event handler to be called by the DB discovery module when any
  *                  `           event related to discovery of the service registered for occurs.
  *
- * @note        The total number of services that can be discovered by this module is @ref 
-                BLE_DB_DISCOVERY_MAX_SRV. This effectively means that the maximum number of 
-                registrations possible is equal to the @ref BLE_DB_DISCOVERY_MAX_SRV. 
+ * @note        The total number of services that can be discovered by this module is @ref
+                BLE_DB_DISCOVERY_MAX_SRV. This effectively means that the maximum number of
+                registrations possible is equal to the @ref BLE_DB_DISCOVERY_MAX_SRV.
  *
  * @retval      NRF_SUCCESS upon successful registration.
  * @retval      NRF_ERROR_NULL when a NULL pointer is passed as input.

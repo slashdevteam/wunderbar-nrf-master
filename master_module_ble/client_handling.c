@@ -37,13 +37,16 @@ static bool            scan_start_flag = false;                            /**< 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /**@brief List of DeviceNames of sensors. */
-
-const uint8_t  SENSORS_DEVICE_NAME[MAX_CLIENTS][BLE_DEVNAME_MAX_LEN + 1]  = LIST_OF_SENSOR_NAMES;
+uint8_t  client_device_names[MAX_CLIENTS][BLE_DEVNAME_MAX_LEN + 1] __attribute__((aligned(4))); //  = LIST_OF_SENSOR_NAMES;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /**@brief List of Characteristic UUID of sensors services. */
 
-const uint16_t SENSOR_CHAR_UUIDS[NUMBER_OF_RELAYR_CHARACTERISTICS + 4] = LIST_OF_SENSOR_CHARS;
+char_desc_t client_char_uuids[MAX_CLIENTS][NUMBER_OF_RELAYR_CHARACTERISTICS + 4] __attribute__((aligned(4))); // = LIST_OF_SENSOR_CHARS;
+uint8_t client_char_uuids_index[MAX_CLIENTS] __attribute__((aligned(4)));
+// uint8_t client_char_uuids_index = 0;
+
+extern serivce_desc_t discovery_services[MAX_DISCOVERY_SERVICES];
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -63,26 +66,26 @@ bool validate_device_name(uint8_t * device_name, uint16_t len, const uint8_t ** 
     uint8_t cnt;
 
     // Check if device is in run mode?
-    if(onboard_get_mode() == ONBOARD_MODE_RUN)
+    // if(onboard_get_mode() == ONBOARD_MODE_RUN)
     {
         for(cnt = 0; cnt < MAX_CLIENTS - 1; cnt++)
         {
-            if((memcmp(SENSORS_DEVICE_NAME[cnt],device_name, len) == 0) && (strlen((const char *)SENSORS_DEVICE_NAME[cnt]) == len))
+            if((memcmp(client_device_names[cnt],device_name, len) == 0) && (strlen((const char *)client_device_names[cnt]) == len))
             {
-                *found_device_name = SENSORS_DEVICE_NAME[cnt];
+                *found_device_name = client_device_names[cnt];
                 return true;
             }
         }
     }
-		// Check if device is in onboard (config) mode?
-    else if(onboard_get_mode() == ONBOARD_MODE_CONFIG)
-    {
-        if((memcmp(SENSORS_DEVICE_NAME[MAX_CLIENTS-1],device_name, len) == 0) && (strlen((const char *)SENSORS_DEVICE_NAME[MAX_CLIENTS-1]) == len))
-        {
-            *found_device_name = SENSORS_DEVICE_NAME[MAX_CLIENTS-1];
-            return true;
-        }
-    }
+  // // Check if device is in onboard (config) mode?
+  //   else if(onboard_get_mode() == ONBOARD_MODE_CONFIG)
+  //   {
+  //       if((memcmp(client_device_names[MAX_CLIENTS-1],device_name, len) == 0) && (strlen((const char *)client_device_names[MAX_CLIENTS-1]) == len))
+  //       {
+  //           *found_device_name = client_device_names[MAX_CLIENTS-1];
+  //           return true;
+  //       }
+  //   }
 
     return false;
 }
@@ -106,16 +109,16 @@ client_t * is_device_connected(uint8_t * device_name, uint16_t len)
     for(cnt = 0; cnt < MAX_CLIENTS; cnt++)
     {
         if(0 == memcmp(m_client[cnt].device_name,device_name, len))
-				{
-				    if(m_client[cnt].state != STATE_IDLE)
-					  {
-						    return &m_client[cnt];
-					  }
-					  else
-					  {
-						    return NULL;
-					  }
-				}
+        {
+            if(m_client[cnt].state != STATE_IDLE)
+            {
+                return &m_client[cnt];
+            }
+            else
+            {
+                return NULL;
+            }
+        }
     }
     return NULL;
 }
@@ -191,7 +194,7 @@ uint16_t search_for_client_configuring(void)
 
 void search_for_client_error(void)
 {
-	  uint32_t err_code;
+    uint32_t err_code;
     uint16_t cnt;
 
     for(cnt = 0; cnt < MAX_CLIENTS; cnt++)
@@ -568,8 +571,8 @@ static void service_relayr_dsc_evt_handler(ble_db_discovery_evt_t * p_evt)
           APPL_LOG("[CL]: Discovery Relayr Complete\r\n");
 
           // If discoverred device is not "WunderbarApp" config device.
-				  if(sensor_get_name_index(p_client->device_name) != DATA_ID_DEV_CFG_APP)
-          {
+          // if(sensor_get_name_index(p_client->device_name) != DATA_ID_DEV_CFG_APP)
+          // {
               char_to_read = find_char_by_uuid(CHARACTERISTIC_SENSOR_ID_UUID, p_client);
               if(char_to_read != NULL)
               {
@@ -580,12 +583,12 @@ static void service_relayr_dsc_evt_handler(ble_db_discovery_evt_t * p_evt)
                   }
                   break;
               }
-          }
-          else
-          {
-              APPL_LOG("[CL]: Go to running state\r\n");
-              p_client->state = STATE_RUNNING;
-          }
+          // }
+          // else
+          // {
+          //     APPL_LOG("[CL]: Go to running state\r\n");
+          //     p_client->state = STATE_RUNNING;
+          // }
 
           break;
       }
@@ -599,6 +602,52 @@ static void service_relayr_dsc_evt_handler(ble_db_discovery_evt_t * p_evt)
       case BLE_DB_DISCOVERY_SRV_NOT_FOUND:
       {
           APPL_LOG("[CL]: Relayr Not Found\r\n");
+          break;
+      }
+
+    }
+}
+
+static void service_discovery_evt_handler(ble_db_discovery_evt_t* p_evt)
+{
+    uint32_t   err_code;
+    client_t * p_client;
+    ble_db_discovery_char_t * char_to_read = NULL;
+
+    // Find the client using the connection handle.
+    p_client = find_client_by_conn_handle(p_evt->conn_handle);
+    p_client->state = STATE_ERROR;
+
+    switch(p_evt->evt_type)
+    {
+
+      case BLE_DB_DISCOVERY_COMPLETE:
+      {
+          APPL_LOG("[CL]: Discovery for service UUID = %x Complete\r\n", p_evt->params.discovered_db.srv_uuid);
+
+          char_to_read = find_char_by_uuid(CHARACTERISTIC_SENSOR_ID_UUID, p_client);
+          if(char_to_read != NULL)
+          {
+              err_code = sd_ble_gattc_read(p_client->srv_db.conn_handle, char_to_read->characteristic.handle_value, 0);
+              if(err_code == NRF_SUCCESS)
+              {
+                  p_client->state = STATE_DEVICE_IDENTIFYING;
+              }
+              break;
+          }
+
+          break;
+      }
+
+      case BLE_DB_DISCOVERY_ERROR:
+      {
+          APPL_LOG("[CL]: Discovery Error\r\n");
+          break;
+      }
+
+      case BLE_DB_DISCOVERY_SRV_NOT_FOUND:
+      {
+          APPL_LOG("[CL]: Service UUID = %x Not Found\r\n");
           break;
       }
 
@@ -640,11 +689,11 @@ static void service_deviceinf_dsc_evt_handler(ble_db_discovery_evt_t * p_evt)
 
         case BLE_DB_DISCOVERY_SRV_NOT_FOUND:
         {
-            if(sensor_get_name_index(p_client->device_name) != DATA_ID_DEV_CFG_APP)
-            {
+            // if(sensor_get_name_index(p_client->device_name) != DATA_ID_DEV_CFG_APP)
+            // {
                 APPL_LOG("[CL]: Discovery Device Information Not Found\r\n");
                 p_client->state = STATE_ERROR;
-            }
+            // }
             break;
         }
 
@@ -685,11 +734,11 @@ static void service_batterylev_dsc_evt_handler(ble_db_discovery_evt_t * p_evt)
 
         case BLE_DB_DISCOVERY_SRV_NOT_FOUND:
         {
-            if(sensor_get_name_index(p_client->device_name) != DATA_ID_DEV_CFG_APP)
-            {
+            // if(sensor_get_name_index(p_client->device_name) != DATA_ID_DEV_CFG_APP)
+            // {
                 APPL_LOG("[CL]: Discovery Battery Not Found\r\n");
                 p_client->state = STATE_ERROR;
-            }
+            // }
             break;
         }
     }
@@ -717,7 +766,7 @@ static void on_evt_write_rsp(ble_evt_t * p_ble_evt, client_t * p_client)
 
     switch(p_client->state) {
 
-			  // Setting client to the running state.
+        // Setting client to the running state.
         case STATE_NOTIF_ENABLE:
         {
             if (write_rsp->handle !=
@@ -755,7 +804,7 @@ static void on_evt_write_rsp(ble_evt_t * p_ble_evt, client_t * p_client)
             break;
         }
 
-				// Send OK write response through SPI.
+        // Send OK write response through SPI.
         case STATE_WAIT_WRITE_RSP:
         {
             spi_create_tx_packet(DATA_ID_RESPONSE_OK, 0xFF, 0xFF, NULL, 0);
@@ -823,18 +872,18 @@ static void on_evt_read_rsp(ble_evt_t * p_ble_evt, client_t * p_client)
 
             data_id = (data_id_t)sensor_get_name_index(p_client->device_name);
             characterisitc = find_char_by_handle_value(read_rsp->handle, p_client);
-            char_id = sensor_get_char_index(characterisitc->characteristic.uuid.uuid);
+            char_id = sensor_get_char_index(data_id, characterisitc->characteristic.uuid.uuid);
 
             if(
                 (onboard_get_state() == ONBOARD_STATE_IDLE) &&
-                (data_id != DATA_ID_DEV_CFG_APP)
+                (data_id != DATA_ID_DEV_CENTRAL)
               )
             {
                 spi_create_tx_packet(data_id, char_id, OPERATION_WRITE, read_rsp->data, read_rsp->len);
             }
             else if(
                      (onboard_get_state() != ONBOARD_STATE_IDLE) &&
-                     (data_id == DATA_ID_DEV_CFG_APP)
+                     (data_id == DATA_ID_DEV_CENTRAL)
                    )
             {
                 onboard_parse_data(char_id, read_rsp->data, read_rsp->len);
@@ -859,9 +908,9 @@ static void on_evt_hvx(ble_evt_t * p_ble_evt, client_t * p_client)
 {
     uint8_t cnt;
     if (
-			  (p_client != NULL) &&
-			  ((p_client->state == STATE_RUNNING)||(p_client->state == STATE_WAIT_WRITE_RSP)||(p_client->state == STATE_WAIT_READ_RSP))
-		   )
+        (p_client != NULL) &&
+        ((p_client->state == STATE_RUNNING)||(p_client->state == STATE_WAIT_WRITE_RSP)||(p_client->state == STATE_WAIT_READ_RSP))
+       )
     {
         data_id_t            data_id;
         ble_gattc_evt_hvx_t *     hvx;
@@ -873,7 +922,7 @@ static void on_evt_hvx(ble_evt_t * p_ble_evt, client_t * p_client)
         data_id = (data_id_t)sensor_get_name_index(p_client->device_name);
 
         characterisitc = find_char_by_handle_value(hvx->handle, p_client);
-        char_id = sensor_get_char_index(characterisitc->characteristic.uuid.uuid);
+        char_id = sensor_get_char_index(data_id, characterisitc->characteristic.uuid.uuid);
 
         spi_create_tx_packet(data_id, char_id, OPERATION_WRITE, hvx->data, hvx->len);
 
@@ -1045,26 +1094,57 @@ void client_handling_init(void)
     }
 
     db_discovery_init();
+    for(uint32_t service = 0; service < MAX_DISCOVERY_SERVICES; ++service)
+    {
+        if(BLE_UUID_TYPE_UNKNOWN != discovery_services[service].type)
+        {
+            ble_uuid_t uuid = {discovery_services[service].uuid, discovery_services[service].type};
+            if(ONBOARD_MODE_RUN == onboard_get_mode() && (discovery_services[service].use_mode & USE_RUN))
+            {
+                err_code = ble_db_discovery_register(&uuid, service_relayr_dsc_evt_handler);
+            }
+            else if(ONBOARD_MODE_DISCOVERY == onboard_get_mode() && (discovery_services[service].use_mode & USE_ONBOARD))
+            {
+                err_code = ble_db_discovery_register(&uuid, service_discovery_evt_handler);
+            }
+            else
+            {
+                APPL_LOG("[CL]: Discovery service Type = %x, UUID = %x, USE_MODE = %x ignored in onboard mode = %d\r\n",
+                         discovery_services[service].type,
+                         discovery_services[service].uuid,
+                         discovery_services[service].use_mode,
+                         onboard_get_mode());
+                continue;
+            }
 
-    // Register with discovery module for the discovery of the service.
-    ble_uuid_t uuid;
+            APPL_LOG("[CL]: Adding discovery service Type = %x, UUID = %x, USE_MODE = %x err_code = %d\r\n",
+                     discovery_services[service].type,
+                     discovery_services[service].uuid,
+                     discovery_services[service].use_mode,
+                     err_code);
+            APP_ERROR_CHECK(err_code);
+        }
+    }
 
-    uuid.type = BLE_UUID_TYPE_BLE;
-    uuid.uuid = SHORT_SERVICE_RELAYR_UUID;
+    // // Register with discovery module for the discovery of the service.
+    // ble_uuid_t uuid;
 
-    err_code = ble_db_discovery_register(&uuid, service_relayr_dsc_evt_handler);
+    // uuid.type = BLE_UUID_TYPE_BLE;
+    // uuid.uuid = SHORT_SERVICE_RELAYR_UUID;
 
-    uuid.type = BLE_UUID_TYPE_BLE;
-    uuid.uuid = BLE_UUID_BATTERY_SERVICE;
+    // err_code = ble_db_discovery_register(&uuid, service_relayr_dsc_evt_handler);
 
-    err_code = ble_db_discovery_register(&uuid, service_deviceinf_dsc_evt_handler);
+    // uuid.type = BLE_UUID_TYPE_BLE;
+    // uuid.uuid = BLE_UUID_BATTERY_SERVICE;
 
-    uuid.type = BLE_UUID_TYPE_BLE;
-    uuid.uuid = BLE_UUID_DEVICE_INFORMATION_SERVICE;
+    // err_code = ble_db_discovery_register(&uuid, service_deviceinf_dsc_evt_handler);
 
-    err_code = ble_db_discovery_register(&uuid, service_batterylev_dsc_evt_handler);
+    // uuid.type = BLE_UUID_TYPE_BLE;
+    // uuid.uuid = BLE_UUID_DEVICE_INFORMATION_SERVICE;
 
-    APP_ERROR_CHECK(err_code);
+    // err_code = ble_db_discovery_register(&uuid, service_batterylev_dsc_evt_handler);
+
+    // APP_ERROR_CHECK(err_code);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -23,11 +23,8 @@
 
 #define APPL_LOG                         debug_log                                      /**< Debug logger macro that will be used in this file to do logging of debug information over UART. */
 
-#define SEC_PARAM_BOND                   1                                              /**< Perform bonding. */
+
 #define SEC_PARAM_MITM                   1                                              /**< Man In The Middle protection required. */
-#define SEC_PARAM_OOB                    0                                              /**< Out Of Band data not available. */
-#define SEC_PARAM_MIN_KEY_SIZE           7                                              /**< Minimum encryption key size. */
-#define SEC_PARAM_MAX_KEY_SIZE           16                                             /**< Maximum encryption key size. */
 
 #define MAX_PEER_COUNT                   DEVICE_MANAGER_MAX_CONNECTIONS                 /**< Maximum number of peer's application intends to manage. */
 #define UUID16_SIZE                      2                                              /**< Size of 16 bit UUID */
@@ -53,88 +50,30 @@ typedef struct
 }
 data_t;
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/** @brief Security requirements for this application. */
-
-static const ble_gap_sec_params_t  sec_params_run_mode =
-{
-    SEC_PARAM_BOND,               // bond
-    1,                            // mitm
-    BLE_GAP_IO_CAPS_KEYBOARD_ONLY,// io_caps
-    SEC_PARAM_OOB,                // oob
-    SEC_PARAM_MIN_KEY_SIZE,       // min_key_size
-    SEC_PARAM_MAX_KEY_SIZE        // max_key_size
-};
-
-static const ble_gap_sec_params_t  sec_params_config_mode =
-{
-    SEC_PARAM_BOND,               // bond
-    0,                            // mitm
-    BLE_GAP_IO_CAPS_NONE,         // io_caps
-    SEC_PARAM_OOB,                // oob
-    SEC_PARAM_MIN_KEY_SIZE,       // min_key_size
-    SEC_PARAM_MAX_KEY_SIZE        // max_key_size
-};
-
-static const ble_gap_sec_params_t * sec_params;
-
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/** @brief Connection parameters requested for connection. */
-
-static const ble_gap_conn_params_t m_connection_param_run_mode =
-{
-    (uint16_t)MIN_CONNECTION_INTERVAL,   // Minimum connection
-    (uint16_t)MAX_CONNECTION_INTERVAL,   // Maximum connection
-    (uint16_t)SLAVE_LATENCY,             // Slave latency
-    (uint16_t)SUPERVISION_TIMEOUT        // Supervision time-out
-};
-
-static const ble_gap_conn_params_t m_connection_param_config_mode =
-{
-    (uint16_t)MSEC_TO_UNITS(50, UNIT_1_25_MS), // Minimum connection
-    (uint16_t)MSEC_TO_UNITS(50, UNIT_1_25_MS), // Maximum connection
-    (uint16_t)SLAVE_LATENCY,             // Slave latency
-    (uint16_t)SUPERVISION_TIMEOUT        // Supervision time-out
-};
-
-static const ble_gap_conn_params_t * m_connection_param;
-
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/**@brief Scan parameters requested for scanning and connection. */
-
-static const ble_gap_scan_params_t m_scan_param_run_mode =
-{
-     0,                       // Active scanning set.
-     0,                       // Selective scanning not set.
-     NULL,                    // White-list not set.
-     (uint16_t)SCAN_INTERVAL, // Scan interval.
-     (uint16_t)SCAN_WINDOW,   // Scan window.
-     0                        // Never stop scanning unless explicit asked to.
-};
-
-static const ble_gap_scan_params_t m_scan_param_config_mode =
-{
-     0,                       // Active scanning set.
-     0,                       // Selective scanning not set.
-     NULL,                    // White-list not set.
-     (uint16_t)MSEC_TO_UNITS(50, UNIT_0_625_MS), // Scan interval.
-     (uint16_t)MSEC_TO_UNITS(30, UNIT_0_625_MS), // Scan window.
-     0                        // Never stop scanning unless explicit asked to.
-};
-
-const ble_gap_scan_params_t * m_scan_param;
+extern const ble_gap_sec_params_t* sec_params;
+extern const ble_gap_conn_params_t* m_connection_param;
+extern const ble_gap_scan_params_t* m_scan_param;
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**@brief  Default values for sensors passkeys. These values are used if corresponding block of persistent storage is empty. */
-const uint8_t  DEFAULT_SENSOR_PASSKEY[8]   = {0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x00, 0x00};
+const uint8_t     DEFAULT_CLIENT_PASSKEY[8]   = {0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x00, 0x00};
+const serivce_desc_t  DEFAULT_DISCOVERY_SERVICE   = {0x0, BLE_UUID_TYPE_UNKNOWN, USE_NEVER};
+const char        DEFAULT_CLIENT_DEVICE_NAME[BLE_DEVNAME_MAX_LEN+1] = "\0";
+const char_desc_t    DEFAULT_CLIENT_CHARACTERISTIC = {0x0, 0x0, ACCESS_NONE};
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 static dm_application_instance_t m_dm_app_id;              /**< Application identifier. */
 static current_conn_device_t     current_conn_device;
 
-passkey_t  sensors_passkey[MAX_CLIENTS] __attribute__((aligned(4)));
+passkey_t   sensors_passkeys[MAX_CLIENTS] __attribute__((aligned(4)));
+serivce_desc_t  discovery_services[MAX_DISCOVERY_SERVICES] __attribute__((aligned(4)));
+sensorID_t  client_device_uuids[MAX_CLIENTS] __attribute__((aligned(4)));
+uint8_t discovery_services_index = 0;
+
+extern uint8_t  client_device_names[MAX_CLIENTS][BLE_DEVNAME_MAX_LEN + 1];
+extern char_desc_t client_char_uuids[MAX_CLIENTS][NUMBER_OF_RELAYR_CHARACTERISTICS + 4];
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -223,8 +162,8 @@ static api_result_t device_manager_event_handler(const dm_handle_t    * p_handle
             {
                 APPL_LOG("[AP]: [CI 0x%02X]: Requesting GAP Authenticate\r\n", p_handle->connection_id);
 
-							  dm_handle_t handle = (*p_handle);
-							  err_code = dm_security_setup_req(&handle);
+                dm_handle_t handle = (*p_handle);
+                err_code = dm_security_setup_req(&handle);
                 APP_ERROR_CHECK(err_code);
 
             }
@@ -276,10 +215,10 @@ static api_result_t device_manager_event_handler(const dm_handle_t    * p_handle
             }
             else
             {
-							  if(onboard_get_mode() != ONBOARD_MODE_CONFIG)
-								{
-										ignore_list_add(&current_conn_device.peer_addr);
-								}
+                              if(onboard_get_mode() != ONBOARD_MODE_CONFIG)
+                                {
+                                        ignore_list_add(&current_conn_device.peer_addr);
+                                }
                 sd_ble_gap_disconnect(p_handle->connection_id, 0x13);
             }
 
@@ -300,14 +239,14 @@ static api_result_t device_manager_event_handler(const dm_handle_t    * p_handle
             APPL_LOG("[AP]: [0x%02X] >> DM_LINK_SECURED_IND, result 0x%08X\r\n", p_handle->connection_id, event_result);
             APPL_LOG("[AP]: [0x%02X] << DM_LINK_SECURED_IND\r\n", p_handle->connection_id);
 
-					  if(current_conn_device.bonded_flag == true)
-						{
-								err_code = client_handling_create(p_handle, p_event->event_param.p_gap_param->conn_handle, &current_conn_device);
-								if(err_code != NRF_SUCCESS)
-								{
-										sd_ble_gap_disconnect(p_handle->connection_id, 0x13);
-								}
-						}
+                      if(current_conn_device.bonded_flag == true)
+                        {
+                                err_code = client_handling_create(p_handle, p_event->event_param.p_gap_param->conn_handle, &current_conn_device);
+                                if(err_code != NRF_SUCCESS)
+                                {
+                                        sd_ble_gap_disconnect(p_handle->connection_id, 0x13);
+                                }
+                        }
 
             break;
         }
@@ -324,7 +263,7 @@ static api_result_t device_manager_event_handler(const dm_handle_t    * p_handle
             APPL_LOG("[AP]: [0x%02X] >> DM_EVT_LINK_SECURED\r\n", p_handle->connection_id);
             APP_ERROR_CHECK(event_result);
             APPL_LOG("[AP]: [0x%02X] << DM_EVT_DEVICE_CONTEXT_LOADED\r\n", p_handle->connection_id);
-					  current_conn_device.bonded_flag = true;
+                      current_conn_device.bonded_flag = true;
             break;
         }
 
@@ -421,6 +360,11 @@ static void on_ble_evt(ble_evt_t * p_ble_evt)
     uint32_t         err_code;
     static uint16_t  service_uuid_list[3] = {SHORT_SERVICE_RELAYR_UUID, BLE_UUID_DEVICE_INFORMATION_SERVICE, BLE_UUID_BATTERY_SERVICE};
 
+    if(onboard_get_mode() == ONBOARD_MODE_DISCOVERY)
+    {
+        service_uuid_list[0] = SHORT_SERVICE_CONFIG_UUID;
+    }
+
     switch (p_ble_evt->header.evt_id)
     {
         case BLE_GAP_EVT_ADV_REPORT:
@@ -455,11 +399,11 @@ static void on_ble_evt(ble_evt_t * p_ble_evt)
                 // Verify if complete name matches target.
                 if (err_code == NRF_SUCCESS)
                 {
-                    const uint8_t * found_device_name;
+                    const uint8_t* found_device_name;
 
                     if(validate_device_name(type_data.p_data, type_data.data_len, &found_device_name) == false)
                     {
-                        APPL_LOG("[AP]: Invalid device name. Adding to ignore list\r\n");
+                        APPL_LOG("[AP]: Invalid device name = %14s. Adding to ignore list\r\n", type_data.p_data);
                         ignore_list_add(&p_ble_evt->evt.gap_evt.params.adv_report.peer_addr);
                     }
                     else if(find_client_by_dev_name(type_data.p_data, type_data.data_len) != NULL)
@@ -471,17 +415,17 @@ static void on_ble_evt(ble_evt_t * p_ble_evt)
                         APPL_LOG("\r\n[AP]: Found device %s\r\n\r\n", found_device_name);
                         scan_stop();
 
-												err_code = sd_ble_gap_connect(&p_ble_evt->evt.gap_evt.params.adv_report.peer_addr, m_scan_param, m_connection_param);
-												if (err_code == NRF_SUCCESS)
-												{
-														memcpy((uint8_t *)&current_conn_device.peer_addr, (uint8_t *)peer_addr, sizeof(ble_gap_addr_t));
-													  current_conn_device.bonded_flag = false;
-														current_conn_device.device_name = found_device_name;
-												}
-												else
-												{
-														APPL_LOG("[AP]: Connection Request Failed, reason %d\r\n", err_code);
-												}
+                        err_code = sd_ble_gap_connect(&p_ble_evt->evt.gap_evt.params.adv_report.peer_addr, m_scan_param, m_connection_param);
+                        if (err_code == NRF_SUCCESS)
+                        {
+                                memcpy((uint8_t *)&current_conn_device.peer_addr, (uint8_t *)peer_addr, sizeof(ble_gap_addr_t));
+                                current_conn_device.bonded_flag = false;
+                                current_conn_device.device_name = found_device_name;
+                        }
+                        else
+                        {
+                                APPL_LOG("[AP]: Connection Request Failed, reason %d\r\n", err_code);
+                        }
 
                     }
                 }
@@ -511,9 +455,9 @@ static void on_ble_evt(ble_evt_t * p_ble_evt)
             uint8_t passkey_index;
             APPL_LOG("[AP]: Authentication Key Request Received\r\n");
             passkey_index = sensor_get_name_index(current_conn_device.device_name);
-            err_code = sd_ble_gap_auth_key_reply(p_ble_evt->evt.gap_evt.conn_handle, BLE_GAP_AUTH_KEY_TYPE_PASSKEY, sensors_passkey[passkey_index]);
+            err_code = sd_ble_gap_auth_key_reply(p_ble_evt->evt.gap_evt.conn_handle, BLE_GAP_AUTH_KEY_TYPE_PASSKEY, sensors_passkeys[passkey_index]);
             APP_ERROR_CHECK(err_code);
-            APPL_LOG("[AP]: Authentication Key Response Send -> %s\r\n", sensors_passkey[passkey_index]);
+            APPL_LOG("[AP]: Authentication Key Response Send -> %s\r\n", sensors_passkeys[passkey_index]);
             break;
         }
 
@@ -571,14 +515,16 @@ static void sys_evt_dispatch(uint32_t sys_evt)
  *
  * @return Void.
  */
+static void softdevice_clock_init(void)
+{
+    // Initialize the SoftDevice handler module.
+    SOFTDEVICE_HANDLER_INIT(NRF_CLOCK_LFCLKSRC_XTAL_20_PPM, false);
+}
 
 static void ble_stack_init(void)
 {
     uint32_t err_code;
-	  ble_gap_conn_sec_mode_t sec_mode;
-
-    // Initialize the SoftDevice handler module.
-    SOFTDEVICE_HANDLER_INIT(NRF_CLOCK_LFCLKSRC_XTAL_20_PPM, false);
+    ble_gap_conn_sec_mode_t sec_mode;
 
     // Register with the SoftDevice handler module for BLE events.
     err_code = softdevice_ble_evt_handler_set(ble_evt_dispatch);
@@ -591,7 +537,7 @@ static void ble_stack_init(void)
 
     BLE_GAP_CONN_SEC_MODE_SET_NO_ACCESS(&sec_mode);
 
-	  sd_ble_gap_device_name_set(&sec_mode,(uint8_t const *)DEVICE_NAME_MASTER_BLE,strlen(DEVICE_NAME_MASTER_BLE));
+    sd_ble_gap_device_name_set(&sec_mode,(uint8_t const *)DEVICE_NAME_MASTER_BLE,strlen(DEVICE_NAME_MASTER_BLE));
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -606,7 +552,7 @@ static void ble_stack_init(void)
  * @return Void.
  */
 
-static void device_manager_init(const ble_gap_sec_params_t * sec_params)
+static void device_manager_init(const ble_gap_sec_params_t* sec_params)
 {
     dm_application_param_t param;
     dm_init_param_t        init_param;
@@ -629,9 +575,9 @@ static void device_manager_init(const ble_gap_sec_params_t * sec_params)
     param.service_type           = DM_PROTOCOL_CNTXT_GATT_CLI_ID;
 
     // Secuirty parameters to be used for security procedures.
-		memcpy((uint8_t*)&param.sec_param, (uint8_t*)sec_params, sizeof(ble_gap_sec_params_t));
+    memcpy((uint8_t*)&param.sec_param, (uint8_t*)sec_params, sizeof(ble_gap_sec_params_t));
 
-		param.sec_param.kdist_periph.enc   = 1;
+    param.sec_param.kdist_periph.enc   = 1;
     param.sec_param.kdist_periph.id    = 1;
 
     err_code = dm_register(&m_dm_app_id,&param);
@@ -660,13 +606,13 @@ bool init_global(uint8_t * global, uint8_t * default_value, uint16_t size)
         return false;
     }
 
-		// Load data from corresponding block.
+    // Load data from corresponding block.
     load_status = pstorage_driver_load(global);
     if((load_status == PS_LOAD_STATUS_FAIL)||(load_status == PS_LOAD_STATUS_NOT_FOUND))
     {
         return false;
     }
-		// If there is no data use default value.
+    // If there is no data use default value.
     else if(load_status == PS_LOAD_STATUS_EMPTY)
     {
         memcpy(global, default_value, size);
@@ -698,36 +644,34 @@ bool pstorage_driver_init()
         return false;
     }
 
-    // Read passkeys from p_storage.
-
-    if(!init_global((uint8_t*)&sensors_passkey[DATA_ID_DEV_HTU], (uint8_t*)&DEFAULT_SENSOR_PASSKEY, sizeof(passkey_t)))
+    // read discovery services
+    for(uint32_t service = 0; service < MAX_DISCOVERY_SERVICES; ++service)
     {
-        return false;
+        if(!init_global((uint8_t*)&discovery_services[service], (uint8_t*)&DEFAULT_DISCOVERY_SERVICE, sizeof(ble_uuid_t)))
+        {
+            return false;
+        }
     }
 
-    if(!init_global((uint8_t*)&sensors_passkey[DATA_ID_DEV_GYRO], (uint8_t*)&DEFAULT_SENSOR_PASSKEY, sizeof(passkey_t)))
+    // read possible client characteristics
+    for(uint32_t characteristic = 0; characteristic < MAX_NUMBER_OF_CHARACTERISTICS; ++characteristic)
     {
-        return false;
+        if(!init_global((uint8_t*)&client_char_uuids[characteristic], (uint8_t*)&DEFAULT_DISCOVERY_SERVICE, sizeof(ble_uuid_t)))
+        {
+            return false;
+        }
     }
-
-    if(!init_global((uint8_t*)&sensors_passkey[DATA_ID_DEV_LIGHT], (uint8_t*)&DEFAULT_SENSOR_PASSKEY, sizeof(passkey_t)))
+    // read client parameters
+    for(uint32_t client = 0; client < MAX_CLIENTS; ++client)
     {
-        return false;
-    }
-
-    if(!init_global((uint8_t*)&sensors_passkey[DATA_ID_DEV_SOUND], (uint8_t*)&DEFAULT_SENSOR_PASSKEY, sizeof(passkey_t)))
-    {
-        return false;
-    }
-
-    if(!init_global((uint8_t*)&sensors_passkey[DATA_ID_DEV_BRIDGE], (uint8_t*)&DEFAULT_SENSOR_PASSKEY, sizeof(passkey_t)))
-    {
-        return false;
-    }
-
-    if(!init_global((uint8_t*)&sensors_passkey[DATA_ID_DEV_IR], (uint8_t*)&DEFAULT_SENSOR_PASSKEY, sizeof(passkey_t)))
-    {
-        return false;
+        if(!init_global((uint8_t*)&client_device_names[client], (uint8_t*)&DEFAULT_CLIENT_DEVICE_NAME, sizeof(BLE_DEVNAME_MAX_LEN+1)))
+        {
+            return false;
+        }
+        if(!init_global((uint8_t*)&sensors_passkeys[client], (uint8_t*)&DEFAULT_CLIENT_PASSKEY, sizeof(passkey_t)))
+        {
+            return false;
+        }
     }
 
     return true;
@@ -744,7 +688,7 @@ bool pstorage_driver_init()
 
 static void power_manage(void)
 {
-    APPL_LOG("\r\n[AP]: power_manage\r\n\r\n");
+    // APPL_LOG("\r\n[AP]: power_manage\r\n\r\n");
     uint32_t err_code = sd_app_evt_wait();
     APP_ERROR_CHECK(err_code);
 }
@@ -757,49 +701,52 @@ static void power_manage(void)
 
 int main(void)
 {
-    // Initialization of various modules.
+    // Minimal init - clock/debug/permanent storage/SPI/BLE
     debug_init();
-    APPL_LOG("\r\n[AP]: BLE inti\r\n\r\n");
-    ble_stack_init();
-    APPL_LOG("\r\n[AP]: Client inti\r\n\r\n");
-    client_handling_init();
-    APPL_LOG("\r\n[AP]: Pstorage inti\r\n\r\n");
+    APPL_LOG("[AP]: SD Clock init\r\n\r\n");
+    softdevice_clock_init();
+
+    APPL_LOG("[AP]: Pstorage init\r\n\r\n");
     pstorage_driver_init();
-    APPL_LOG("\r\n[AP]: SPI inti\r\n\r\n");
+
+    APPL_LOG("[AP]: SPI init\r\n\r\n");
     spi_slave_app_init();
 
-	  // Wait to go out of IDLE mode.
-	  while(onboard_get_mode() == ONBOARD_MODE_IDLE)
-		{
-				power_manage();
-		}
+    APPL_LOG("[AP]: BLE stack init\r\n\r\n");
+    ble_stack_init();
 
-		// Set params depending on the mode.
-		if(onboard_get_mode() == ONBOARD_MODE_RUN)
-		{
-				sec_params = &sec_params_run_mode;
-			  m_connection_param = &m_connection_param_run_mode;
-			  m_scan_param = &m_scan_param_run_mode;
-		}
-		else
-		{
-				sec_params = &sec_params_config_mode;
-			  m_connection_param = &m_connection_param_config_mode;
-			  m_scan_param = &m_scan_param_config_mode;
-		}
-
-	  device_manager_init(sec_params);
-
-    // Start scanning for devices.
-    APPL_LOG("\r\n[AP]: Start Scan\r\n\r\n");
-    scan_start();
-
-    for (;;)
+    // main loop
+    while(true)
     {
-        power_manage();
-        onboard_state_handle();
-        pstorage_driver_run();
-        spi_check_tx_ready();
-        search_for_client_error();
+        if(ONBOARD_MODE_IDLE == onboard_get_mode() || ONBOARD_MODE_CONFIG == onboard_get_mode())
+        {
+            power_manage();
+        }
+        else
+        {
+            APPL_LOG("[AP]: Client init\r\n\r\n");
+            client_handling_init();
+
+            APPL_LOG("[AP]: DM init\r\n\r\n");
+            device_manager_init(sec_params);
+
+            // Start scanning for devices.
+            APPL_LOG("[AP]: Start Scan\r\n\r\n");
+            scan_start();
+
+            for (;;)
+            {
+                power_manage();
+                onboard_state_handle();
+                pstorage_driver_run();
+                spi_check_tx_ready();
+                search_for_client_error();
+                if(ONBOARD_MODE_RUN != onboard_get_mode() && ONBOARD_MODE_DISCOVERY != onboard_get_mode())
+                {
+                    APPL_LOG("[AP]: Switch to mode = %d\r\n\r\n", onboard_get_mode());
+                    break;
+                }
+            }
+        }
     }
 }

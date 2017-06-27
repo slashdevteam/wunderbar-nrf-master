@@ -1,12 +1,12 @@
 
 /** @file   onboard.c
- *  @brief  This driver contains functions for working with onboarding process 
+ *  @brief  This driver contains functions for working with onboarding process
  *          and corresponding macros, constants,and global variables.
  *
  *  @author MikroElektronika
  *  @bug    No known bugs.
  */
- 
+
 #ifndef ONBOARD_H__
 #define ONBOARD_H__
 
@@ -36,7 +36,7 @@
                                 ONBOARD_CHAR_WIFI_PASS,            \
                                 ONBOARD_CHAR_MASTER_MODULE_ID,     \
                                 ONBOARD_CHAR_MASTER_MODULE_SEC,    \
-	                              ONBOARD_CHAR_MASTER_MODULE_URL     \
+                                  ONBOARD_CHAR_MASTER_MODULE_URL     \
                                }
 
 /**< Number of characteristics in Relayr Service. */
@@ -51,7 +51,7 @@ typedef enum
     ONBOARD_CHAR_INDEX_WIFI_PASS             = 3,
     ONBOARD_CHAR_INDEX_MASTER_MODULE_ID      = 4,
     ONBOARD_CHAR_INDEX_MASTER_MODULE_SEC     = 5,
-	  ONBOARD_CHAR_INDEX_MASTER_MODULE_URL     = 6
+      ONBOARD_CHAR_INDEX_MASTER_MODULE_URL     = 6
 }
 onboard_characteristics_t;
 
@@ -60,7 +60,8 @@ typedef enum
 {
     ONBOARD_MODE_IDLE   = 0,
     ONBOARD_MODE_CONFIG = 1,
-    ONBOARD_MODE_RUN    = 2
+    ONBOARD_MODE_DISCOVERY = 2,
+    ONBOARD_MODE_RUN    = 3
 }
 onboard_mode_t;
 
@@ -69,35 +70,35 @@ typedef enum
 {
     ONBOARD_STATE_IDLE                       = 0,
     ONBOARD_STATE_START                      = 1,
-  
+
     ONBOARD_STATE_WAIT_HTU_GYRO_LIGHT_PASS   = 2,
     ONBOARD_STATE_STORING_HTU_PASS           = 3,
     ONBOARD_STATE_STORING_GYRO_PASS          = 4,
-	  ONBOARD_STATE_STORING_LIGHT_PASS         = 5,
-  
+    ONBOARD_STATE_STORING_LIGHT_PASS         = 5,
+
     ONBOARD_STATE_WAIT_SOUND_BRIDGE_IR_PASS  = 6,
     ONBOARD_STATE_STORING_SOUND_PASS         = 7,
-	  ONBOARD_STATE_STORING_BRIDGE_PASS        = 8,
+    ONBOARD_STATE_STORING_BRIDGE_PASS        = 8,
     ONBOARD_STATE_STORING_IR_PASS            = 9,
-  
-  
+
+
     ONBOARD_STATE_WAIT_WIFI_SSID             = 10,
     ONBOARD_STATE_SENDING_WIFI_SSID          = 11,
-  
+
     ONBOARD_STATE_WAIT_WIFI_PASS             = 12,
-    ONBOARD_STATE_SENDING_WIFI_PASS          = 13, 
-  
+    ONBOARD_STATE_SENDING_WIFI_PASS          = 13,
+
     ONBOARD_STATE_WAIT_MASTER_MODULE_ID      = 14,
-    ONBOARD_STATE_SENDING_MASTER_MODULE_ID   = 15, 
-  
+    ONBOARD_STATE_SENDING_MASTER_MODULE_ID   = 15,
+
     ONBOARD_STATE_WAIT_MASTER_MODULE_SEC     = 16,
-    ONBOARD_STATE_SENDING_MASTER_MODULE_SEC  = 17, 
-		
-		ONBOARD_STATE_WAIT_MASTER_MODULE_URL     = 18,
-		ONBOARD_STATE_SENDING_MASTER_MODULE_URL  = 19, 
-    
+    ONBOARD_STATE_SENDING_MASTER_MODULE_SEC  = 17,
+
+    ONBOARD_STATE_WAIT_MASTER_MODULE_URL     = 18,
+    ONBOARD_STATE_SENDING_MASTER_MODULE_URL  = 19,
+
     ONBOARD_STATE_COMPLETE                   = 20,
-    
+
     ONBOARD_STATE_ERROR                      = 30
 }
 onboard_state_t;
@@ -112,6 +113,12 @@ onboard_state_t onboard_get_state(void);
 void onboard_state_handle(void);
 bool onboard_store_passkey_from_ble(uint8_t passkey_index, uint8_t * data);
 bool onboard_store_passkey_from_wifi(uint8_t passkey_index, uint8_t * data);
+bool onboard_store_discovery_service(uint8_t* data);
+bool onboard_store_client_char_uuid(uint8_t client_index, uint8_t* data);
+bool onboard_store_client_device_name(uint8_t client_index, uint8_t* data);
+bool onboard_store_client_uuid(uint8_t client_index, uint8_t* data);
+void onboard_set_run_security_params(void);
+void onboard_set_discovery_security_params(void);
 
 #endif // ONBOARD_H__
 

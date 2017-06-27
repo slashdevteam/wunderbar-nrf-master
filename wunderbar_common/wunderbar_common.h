@@ -3,6 +3,7 @@
 #define WUNDERBAR_COMMON_H_
 
 #include "types.h"
+#include "ble_types.h"
 #include "device_manager_cnfg.h"
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -32,6 +33,7 @@
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+#define MAX_DISCOVERY_SERVICES                            4
 /**@brief Service Relayr UUID. */
 #define SHORT_SERVICE_RELAYR_UUID                         0x2000
 
@@ -57,6 +59,7 @@
 
 /**< Number of characteristics in Relayr Service. */
 #define NUMBER_OF_RELAYR_CHARACTERISTICS                  8
+#define MAX_NUMBER_OF_CHARACTERISTICS                     NUMBER_OF_RELAYR_CHARACTERISTICS + 4
 
 /**< Number of sensors. */
 #define NUMBER_OF_SENSORS                                 6
@@ -120,8 +123,10 @@
 typedef uint32_t beaconFrequency_t;
 typedef uint32_t frequency_t;
 
-typedef uint8_t  sensorID_t[16];
-typedef uint8_t  passkey_t[8];
+#define DEVICE_UUID_LEN 16
+#define DEVICE_PASS_LEN 8
+typedef uint8_t  sensorID_t[DEVICE_UUID_LEN];
+typedef uint8_t  passkey_t[DEVICE_PASS_LEN];
 
 typedef bool     led_state_t;
 typedef bool     security_level_t;
@@ -454,7 +459,7 @@ typedef enum
     DATA_ID_DEV_BRIDGE          = 0x4,
     DATA_ID_DEV_IR              = 0x5,
 
-    DATA_ID_DEV_CFG_APP         = 0x6,
+    // DATA_ID_DEV_CFG_APP         = 0x6,
 
     DATA_ID_DEV_CENTRAL         = 0x7,
 
@@ -501,7 +506,7 @@ typedef enum
     FIELD_ID_CONFIG_WIFI_PASS                = 7,
     FIELD_ID_CONFIG_MASTER_MODULE_ID         = 8,
     FIELD_ID_CONFIG_MASTER_MODULE_SEC        = 9,
-      FIELD_ID_CONFIG_MASTER_MODULE_URL        = 10,
+    FIELD_ID_CONFIG_MASTER_MODULE_URL        = 10,
 
     FIELD_ID_CONFIG_START                    = 11,
     FIELD_ID_CONFIG_COMPLETE                 = 12,
@@ -510,6 +515,12 @@ typedef enum
     FIELD_ID_CONFIG_ERROR                    = 15,
 
     FIELD_ID_RUN                             = 16,
+    FIELD_ID_CONFIG_ADD_DISCOVERY_SERVICE    = 17,
+    FIELD_ID_CONFIG_ADD_CLIENT_CHARACTERISTC = 18,
+    FIELD_ID_CONFIG_CLIENT_NAME              = 19,
+    FIELD_ID_CONFIG_CLIENT_PASS              = 20,
+    FIELD_ID_CONFIG_CLIENT_UUID              = 21,
+    FIELD_ID_CONFIG_START_DISCOVERY          = 22,
 }
 field_id_config_t;
 
@@ -523,13 +534,46 @@ typedef enum
 operation_t;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+typedef enum
+{
+    USE_NEVER = 0x0,
+    USE_ONBOARD = 0x1,
+    USE_RUN = 0x2,
+    USE_ALWAYS = 0x3,
+}
+use_mode_t;
 
-#define SPI_PACKET_DATA_SIZE 20
+typedef struct
+{
+    uint16_t    uuid;
+    uint8_t     type;
+    uint8_t use_mode;
+}
+__attribute__((packed)) serivce_desc_t;
+
+typedef enum
+{
+    ACCESS_NONE = 0x0,
+    ACCESS_READ = 0x1,
+    ACCESS_WRITE = 0x2,
+    ACCESS_RW = 0x3,
+    ACCESS_VERIFY = 0x4,
+}
+access_mode_t;
+
+typedef struct
+{
+    uint16_t    uuid;
+}
+__attribute__((packed)) char_desc_t;
+
+#define SPI_PACKET_DATA_SIZE 24
 
 typedef struct
 {
     data_id_t   data_id;
     uint8_t     field_id;
+    uint8_t     client_index;
     operation_t operation;
     uint8_t     data[SPI_PACKET_DATA_SIZE];
 }
@@ -540,7 +584,7 @@ __attribute__((packed)) spi_frame_t;
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 uint8_t sensors_get_msg_size(data_id_t sens_name, field_id_char_index_t msg_type);
-uint8_t sensor_get_char_index(uint16_t char_uuid);
+uint8_t sensor_get_char_index(uint8_t device_index, uint16_t char_uuid);
 uint8_t sensor_get_name_index(const uint8_t * device_name);
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

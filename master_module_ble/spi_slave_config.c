@@ -18,6 +18,9 @@
 #include "gpio.h"
 #include "client_handling.h"
 #include "onboard.h"
+#include "debug.h"
+
+#define APPL_LOG                   debug_log
 
 #define DEF_CHARACTER 0xDDu             /**< SPI default character. Character clocked out in case of an ignored transaction. */
 #define ORC_CHARACTER 0xCCu             /**< SPI over-read character. Character clocked out after an over-read of the transmit buffer. */
@@ -59,7 +62,7 @@ spi_tx_status_t;
 
 spi_client_frame_buffer_t  spi_clients_frame_buffer[MAX_CLIENTS];
 spi_client_frame_buffer_t *spi_curr_frame;
-spi_client_frame_buffer_t *spi_onboard_frame = &spi_clients_frame_buffer[DATA_ID_DEV_CFG_APP];
+spi_client_frame_buffer_t *spi_onboard_frame = &spi_clients_frame_buffer[MAX_CLIENTS - 1];
 
 spi_client_frame_buffer_t  spi_response_frame;
 
@@ -78,16 +81,16 @@ static spi_frame_t  spi_tx_frame;
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 //static void spi_slave_event_handle(spi_slave_evt_t event);
-static bool spi_handler(data_id_t data_id, uint8_t field_id, uint8_t read_write, uint8_t * data);
+static bool spi_handler(data_id_t data_id, uint8_t field_id, uint8_t client_index, uint8_t read_write, uint8_t * data);
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /**@brief Extern variables. */
 
-extern const uint8_t  SENSORS_DEVICE_NAME[MAX_CLIENTS][BLE_DEVNAME_MAX_LEN + 1];
-extern const uint16_t SENSOR_CHAR_UUIDS[NUMBER_OF_RELAYR_CHARACTERISTICS + 4];
-extern const uint8_t  CENTRAL_BLE_FIRMWARE_REV[20];
+extern const uint8_t     client_device_names[MAX_CLIENTS][BLE_DEVNAME_MAX_LEN + 1];
+extern const char_desc_t client_char_uuids[MAX_CLIENTS][NUMBER_OF_RELAYR_CHARACTERISTICS + 4];
+extern const uint8_t     CENTRAL_BLE_FIRMWARE_REV[20];
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -118,7 +121,7 @@ void spi_create_tx_packet(data_id_t data_id, uint8_t field_id, uint8_t operation
     memset((uint8_t *)&frame_buff->frame, 0xFF, sizeof(spi_tx_frame));
 
 
-    if(data_id == DATA_ID_DEV_CFG_APP)
+    if(data_id == DATA_ID_DEV_CENTRAL)
     {
         data_id = DATA_ID_CONFIG;
     }
@@ -265,7 +268,7 @@ void SPI1_TWI1_IRQHandler(void)
           memset((uint8_t *)&spi_tx_frame, 0xFF, sizeof(spi_tx_frame));
           spi_tx_status = SPI_TX_STATUS_FREE;
 
-          spi_handler(spi_rx_frame.data_id, spi_rx_frame.field_id, spi_rx_frame.operation, spi_rx_frame.data);
+          spi_handler(spi_rx_frame.data_id, spi_rx_frame.field_id, spi_rx_frame.client_index, spi_rx_frame.operation, spi_rx_frame.data);
 
           gpio_write(SPIS_RDY_TO_SEND, false);
      }
@@ -279,9 +282,9 @@ void SPI1_TWI1_IRQHandler(void)
  * @param[in]
  */
 
-static bool spi_handler(data_id_t data_id, uint8_t field_id, uint8_t read_write, uint8_t * data)
+static bool spi_handler(data_id_t data_id, uint8_t field_id, uint8_t client_index, uint8_t read_write, uint8_t * data)
 {
-
+    // APPL_LOG("\r\n[SPI] handler data_id = %x, field_id = %d, client_index = %d, data = %x", data_id, field_id, client_index, *(uint16_t*)data);
     if(
        (data_id <= DATA_ID_DEV_IR) &&
        (field_id <= FIELD_ID_SENSOR_STATUS) &&
@@ -289,7 +292,7 @@ static bool spi_handler(data_id_t data_id, uint8_t field_id, uint8_t read_write,
       )
     {
         client_t * p_client;
-        p_client = find_client_by_dev_name(SENSORS_DEVICE_NAME[data_id], strlen((const char *)SENSORS_DEVICE_NAME[data_id]));
+        p_client = find_client_by_dev_name(client_device_names[data_id], strlen((const char *)client_device_names[data_id]));
 
         // Check if sensor is connected.
         if(p_client == NULL)
@@ -309,11 +312,11 @@ static bool spi_handler(data_id_t data_id, uint8_t field_id, uint8_t read_write,
         {
             uint8_t len;
             len = sensors_get_msg_size(data_id, (field_id_char_index_t)field_id);
-            return write_characteristic_value(p_client, SENSOR_CHAR_UUIDS[field_id], data, len);
+            return write_characteristic_value(p_client, client_char_uuids[data_id][field_id].uuid, data, len);
         }
         else
         {
-            return read_characteristic_value(p_client, SENSOR_CHAR_UUIDS[field_id]);
+            return read_characteristic_value(p_client, client_char_uuids[data_id][field_id].uuid);
         }
     }
 
@@ -325,6 +328,7 @@ static bool spi_handler(data_id_t data_id, uint8_t field_id, uint8_t read_write,
 
             case FIELD_ID_RUN:
             {
+                onboard_set_run_security_params();
                 onboard_set_mode(ONBOARD_MODE_RUN);
                 return true;
             }
@@ -332,10 +336,17 @@ static bool spi_handler(data_id_t data_id, uint8_t field_id, uint8_t read_write,
             case FIELD_ID_CONFIG_START:
             {
                 onboard_set_mode(ONBOARD_MODE_CONFIG);
-                if(onboard_get_state() == ONBOARD_STATE_IDLE)
-                {
-                    onboard_set_state(ONBOARD_STATE_START);
-                }
+                // if(onboard_get_state() == ONBOARD_STATE_IDLE)
+                // {
+                //     onboard_set_state(ONBOARD_STATE_START);
+                // }
+                return true;
+            }
+
+            case FIELD_ID_CONFIG_START_DISCOVERY:
+            {
+                onboard_set_discovery_security_params();
+                onboard_set_mode(ONBOARD_MODE_DISCOVERY);
                 return true;
             }
 
@@ -345,15 +356,39 @@ static bool spi_handler(data_id_t data_id, uint8_t field_id, uint8_t read_write,
                 return true;
             }
 
-            case FIELD_ID_CONFIG_HTU_PASS:
-            case FIELD_ID_CONFIG_GYRO_PASS:
-            case FIELD_ID_CONFIG_LIGHT_PASS:
-            case FIELD_ID_CONFIG_SOUND_PASS:
-            case FIELD_ID_CONFIG_BRIDGE_PASS:
-            case FIELD_ID_CONFIG_IR_PASS:
+            case FIELD_ID_CONFIG_ADD_DISCOVERY_SERVICE:
             {
-                return onboard_store_passkey_from_wifi(field_id, data);
+                return onboard_store_discovery_service(data);
             }
+
+            case FIELD_ID_CONFIG_ADD_CLIENT_CHARACTERISTC:
+            {
+                return onboard_store_client_char_uuid(client_index, data);
+            }
+
+            case FIELD_ID_CONFIG_CLIENT_NAME:
+            {
+                return onboard_store_client_device_name(client_index, data);
+            }
+
+            case FIELD_ID_CONFIG_CLIENT_PASS:
+            {
+                return onboard_store_passkey_from_wifi(client_index, data);
+            }
+
+            case FIELD_ID_CONFIG_CLIENT_UUID:
+            {
+                return onboard_store_client_uuid(client_index, data);
+            }
+            // case FIELD_ID_CONFIG_HTU_PASS:
+            // case FIELD_ID_CONFIG_GYRO_PASS:
+            // case FIELD_ID_CONFIG_LIGHT_PASS:
+            // case FIELD_ID_CONFIG_SOUND_PASS:
+            // case FIELD_ID_CONFIG_BRIDGE_PASS:
+            // case FIELD_ID_CONFIG_IR_PASS:
+            // {
+            //     return onboard_store_passkey_from_wifi(field_id, data);
+            // }
 
         }
     }
