@@ -105,6 +105,8 @@ onboard_state_t;
 onboard_mode_t onboard_get_mode(void);
 void onboard_set_mode(onboard_mode_t new_mode);
 void onboard_set_state(onboard_state_t new_state);
+void onboard_set_sec_params_run_mode(void);
+void onboard_set_sec_params_config_mode(void);
 void onboard_on_store_complete(void);
 void onboard_on_send_complete(void);
 void onboard_parse_data(uint8_t field_id, uint8_t * data, uint8_t len);

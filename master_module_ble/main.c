@@ -23,11 +23,7 @@
 
 #define APPL_LOG                         debug_log                                      /**< Debug logger macro that will be used in this file to do logging of debug information over UART. */
 
-#define SEC_PARAM_BOND                   1                                              /**< Perform bonding. */
 #define SEC_PARAM_MITM                   1                                              /**< Man In The Middle protection required. */
-#define SEC_PARAM_OOB                    0                                              /**< Out Of Band data not available. */
-#define SEC_PARAM_MIN_KEY_SIZE           7                                              /**< Minimum encryption key size. */
-#define SEC_PARAM_MAX_KEY_SIZE           16                                             /**< Maximum encryption key size. */
 
 #define MAX_PEER_COUNT                   DEVICE_MANAGER_MAX_CONNECTIONS                 /**< Maximum number of peer's application intends to manage. */
 #define UUID16_SIZE                      2                                              /**< Size of 16 bit UUID */
@@ -53,78 +49,9 @@ typedef struct
 }
 data_t;
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/** @brief Security requirements for this application. */
-
-static const ble_gap_sec_params_t  sec_params_run_mode =
-{
-    SEC_PARAM_BOND,               // bond
-    1,                            // mitm
-    BLE_GAP_IO_CAPS_KEYBOARD_ONLY,// io_caps
-    SEC_PARAM_OOB,                // oob
-    SEC_PARAM_MIN_KEY_SIZE,       // min_key_size
-    SEC_PARAM_MAX_KEY_SIZE        // max_key_size
-};
-
-static const ble_gap_sec_params_t  sec_params_config_mode =
-{
-    SEC_PARAM_BOND,               // bond
-    0,                            // mitm
-    BLE_GAP_IO_CAPS_NONE,         // io_caps
-    SEC_PARAM_OOB,                // oob
-    SEC_PARAM_MIN_KEY_SIZE,       // min_key_size
-    SEC_PARAM_MAX_KEY_SIZE        // max_key_size
-};
-
-static const ble_gap_sec_params_t * sec_params;
-
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/** @brief Connection parameters requested for connection. */
-
-static const ble_gap_conn_params_t m_connection_param_run_mode =
-{
-    (uint16_t)MIN_CONNECTION_INTERVAL,   // Minimum connection
-    (uint16_t)MAX_CONNECTION_INTERVAL,   // Maximum connection
-    (uint16_t)SLAVE_LATENCY,             // Slave latency
-    (uint16_t)SUPERVISION_TIMEOUT        // Supervision time-out
-};
-
-static const ble_gap_conn_params_t m_connection_param_config_mode =
-{
-    (uint16_t)MSEC_TO_UNITS(50, UNIT_1_25_MS), // Minimum connection
-    (uint16_t)MSEC_TO_UNITS(50, UNIT_1_25_MS), // Maximum connection
-    (uint16_t)SLAVE_LATENCY,             // Slave latency
-    (uint16_t)SUPERVISION_TIMEOUT        // Supervision time-out
-};
-
-static const ble_gap_conn_params_t * m_connection_param;
-
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/**@brief Scan parameters requested for scanning and connection. */
-
-static const ble_gap_scan_params_t m_scan_param_run_mode =
-{
-     0,                       // Active scanning set.
-     0,                       // Selective scanning not set.
-     NULL,                    // White-list not set.
-     (uint16_t)SCAN_INTERVAL, // Scan interval.
-     (uint16_t)SCAN_WINDOW,   // Scan window.
-     0                        // Never stop scanning unless explicit asked to.
-};
-
-static const ble_gap_scan_params_t m_scan_param_config_mode =
-{
-     0,                       // Active scanning set.
-     0,                       // Selective scanning not set.
-     NULL,                    // White-list not set.
-     (uint16_t)MSEC_TO_UNITS(50, UNIT_0_625_MS), // Scan interval.
-     (uint16_t)MSEC_TO_UNITS(30, UNIT_0_625_MS), // Scan window.
-     0                        // Never stop scanning unless explicit asked to.
-};
-
-const ble_gap_scan_params_t * m_scan_param;
-
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+extern const ble_gap_sec_params_t*  sec_params;
+extern const ble_gap_conn_params_t* m_connection_param;
+extern const ble_gap_scan_params_t* m_scan_param;
 
 /**@brief  Default values for sensors passkeys. These values are used if corresponding block of persistent storage is empty. */
 // const uint8_t  DEFAULT_SENSOR_PASSKEY[8]   = {0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x00, 0x00};
@@ -574,10 +501,16 @@ static void sys_evt_dispatch(uint32_t sys_evt)
  * @return Void.
  */
 
+static void softdevice_clock_init(void)
+{
+    // Initialize the SoftDevice handler module.
+    SOFTDEVICE_HANDLER_INIT(NRF_CLOCK_LFCLKSRC_XTAL_20_PPM, false);
+}
+
 static void ble_stack_init(void)
 {
     uint32_t err_code;
-	  ble_gap_conn_sec_mode_t sec_mode;
+    ble_gap_conn_sec_mode_t sec_mode;
 
     // Initialize the SoftDevice handler module.
     SOFTDEVICE_HANDLER_INIT(NRF_CLOCK_LFCLKSRC_XTAL_20_PPM, false);
@@ -761,47 +694,49 @@ int main(void)
 {
     // Initialization of various modules.
     debug_init();
-    APPL_LOG("\r\n[AP]: BLE inti\r\n\r\n");
-    ble_stack_init();
-    APPL_LOG("\r\n[AP]: Client inti\r\n\r\n");
-    client_handling_init();
-    APPL_LOG("\r\n[AP]: Pstorage inti\r\n\r\n");
+    APPL_LOG("[AP]: SD Clock init\r\n\r\n");
+    softdevice_clock_init();
+    APPL_LOG("[AP]: Pstorage init\r\n\r\n");
     pstorage_driver_init();
-    APPL_LOG("\r\n[AP]: SPI inti\r\n\r\n");
+    APPL_LOG("[AP]: SPI init\r\n\r\n");
     spi_slave_app_init();
 
-	  // Wait to go out of IDLE mode.
-	  while(onboard_get_mode() == ONBOARD_MODE_IDLE)
-		{
-				power_manage();
-		}
+    APPL_LOG("[AP]: BLE stack init\r\n\r\n");
+    ble_stack_init();
 
-		// Set params depending on the mode.
-		if(onboard_get_mode() == ONBOARD_MODE_RUN)
-		{
-				sec_params = &sec_params_run_mode;
-			  m_connection_param = &m_connection_param_run_mode;
-			  m_scan_param = &m_scan_param_run_mode;
-		}
-		else
-		{
-				sec_params = &sec_params_config_mode;
-			  m_connection_param = &m_connection_param_config_mode;
-			  m_scan_param = &m_scan_param_config_mode;
-		}
-
-	  device_manager_init(sec_params);
-
-    // Start scanning for devices.
-    APPL_LOG("\r\n[AP]: Start Scan\r\n\r\n");
-    scan_start();
-
-    for (;;)
+    // main loop
+    while(true)
     {
-        power_manage();
-        onboard_state_handle();
-        pstorage_driver_run();
-        spi_check_tx_ready();
-        search_for_client_error();
+        if(ONBOARD_MODE_IDLE == onboard_get_mode() || ONBOARD_MODE_CONFIG == onboard_get_mode())
+        {
+            spi_check_tx_ready();
+            power_manage();
+        }
+        else
+        {
+            APPL_LOG("[AP]: Client init\r\n\r\n");
+            client_handling_init();
+
+            APPL_LOG("[AP]: DM init\r\n\r\n");
+            device_manager_init(sec_params);
+
+            // Start scanning for devices.
+            APPL_LOG("[AP]: Start Scan\r\n\r\n");
+            scan_start();
+
+            for (;;)
+            {
+                power_manage();
+                onboard_state_handle();
+                pstorage_driver_run();
+                search_for_client_event();
+                spi_check_tx_ready();
+                if(ONBOARD_MODE_RUN != onboard_get_mode() && ONBOARD_MODE_CONFIG != onboard_get_mode())
+                {
+                    APPL_LOG("[AP]: Switch to mode = %d\r\n\r\n", onboard_get_mode());
+                    break;
+                }
+            }
+        }
     }
 }

@@ -189,7 +189,7 @@ uint16_t search_for_client_configuring(void)
  * @return Void.
  */
 
-void search_for_client_error(void)
+void search_for_client_event(void)
 {
 	  uint32_t err_code;
     uint16_t cnt;
@@ -198,6 +198,7 @@ void search_for_client_error(void)
     {
         if(m_client[cnt].state == STATE_ERROR)
         {
+            APPL_LOG("[CL]: search_for_client_event() :sd_ble_gap_disconnect\r\n");
             err_code = sd_ble_gap_disconnect(m_client[cnt].srv_db.conn_handle, BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
             if(err_code == NRF_SUCCESS)
             {

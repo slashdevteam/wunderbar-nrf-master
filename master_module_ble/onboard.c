@@ -15,6 +15,82 @@
 
 #define APPL_LOG        debug_log      /**< Debug logger macro that will be used in this file to do logging of debug information over UART. */
 
+#define SEC_PARAM_BOND                   1                                              /**< Perform bonding. */
+#define SEC_PARAM_OOB                    0                                              /**< Out Of Band data not available. */
+#define SEC_PARAM_MIN_KEY_SIZE           7                                              /**< Minimum encryption key size. */
+#define SEC_PARAM_MAX_KEY_SIZE           16                                             /**< Maximum encryption key size. */
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/** @brief Security requirements for this application. */
+
+static const ble_gap_sec_params_t  sec_params_run_mode =
+{
+    SEC_PARAM_BOND,               // bond
+    1,                            // mitm
+    BLE_GAP_IO_CAPS_KEYBOARD_ONLY,// io_caps
+    SEC_PARAM_OOB,                // oob
+    SEC_PARAM_MIN_KEY_SIZE,       // min_key_size
+    SEC_PARAM_MAX_KEY_SIZE        // max_key_size
+};
+
+static const ble_gap_sec_params_t  sec_params_config_mode =
+{
+    SEC_PARAM_BOND,               // bond
+    0,                            // mitm
+    BLE_GAP_IO_CAPS_NONE,         // io_caps
+    SEC_PARAM_OOB,                // oob
+    SEC_PARAM_MIN_KEY_SIZE,       // min_key_size
+    SEC_PARAM_MAX_KEY_SIZE        // max_key_size
+};
+
+const ble_gap_sec_params_t * sec_params;
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/** @brief Connection parameters requested for connection. */
+
+static const ble_gap_conn_params_t m_connection_param_run_mode =
+{
+    (uint16_t)MIN_CONNECTION_INTERVAL,   // Minimum connection
+    (uint16_t)MAX_CONNECTION_INTERVAL,   // Maximum connection
+    (uint16_t)SLAVE_LATENCY,             // Slave latency
+    (uint16_t)SUPERVISION_TIMEOUT        // Supervision time-out
+};
+
+static const ble_gap_conn_params_t m_connection_param_config_mode =
+{
+    (uint16_t)MSEC_TO_UNITS(50, UNIT_1_25_MS), // Minimum connection
+    (uint16_t)MSEC_TO_UNITS(50, UNIT_1_25_MS), // Maximum connection
+    (uint16_t)SLAVE_LATENCY,             // Slave latency
+    (uint16_t)SUPERVISION_TIMEOUT        // Supervision time-out
+};
+
+const ble_gap_conn_params_t * m_connection_param;
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/**@brief Scan parameters requested for scanning and connection. */
+
+static const ble_gap_scan_params_t m_scan_param_run_mode =
+{
+     0,                       // Active scanning set.
+     0,                       // Selective scanning not set.
+     NULL,                    // White-list not set.
+     (uint16_t)SCAN_INTERVAL, // Scan interval.
+     (uint16_t)SCAN_WINDOW,   // Scan window.
+     0                        // Never stop scanning unless explicit asked to.
+};
+
+static const ble_gap_scan_params_t m_scan_param_config_mode =
+{
+     0,                       // Active scanning set.
+     0,                       // Selective scanning not set.
+     NULL,                    // White-list not set.
+     (uint16_t)MSEC_TO_UNITS(50, UNIT_0_625_MS), // Scan interval.
+     (uint16_t)MSEC_TO_UNITS(30, UNIT_0_625_MS), // Scan window.
+     0                        // Never stop scanning unless explicit asked to.
+};
+
+const ble_gap_scan_params_t * m_scan_param;
+
 extern const uint8_t    SENSORS_DEVICE_NAME[MAX_CLIENTS][BLE_DEVNAME_MAX_LEN + 1];
 extern passkey_t        sensors_passkey[MAX_CLIENTS];
 
@@ -36,6 +112,7 @@ static onboard_characteristics_t current_char;
 
 void onboard_set_mode(onboard_mode_t new_mode)
 {
+    APPL_LOG("[OB]: Set mode %d\r\n", new_mode);
     onboard_mode = new_mode;
 }
 
@@ -64,7 +141,22 @@ onboard_mode_t onboard_get_mode(void)
 
 void onboard_set_state(onboard_state_t new_state)
 {
+    APPL_LOG("[OB]: Set state %d\r\n", new_state);
     onboard_state = new_state;
+}
+
+void onboard_set_sec_params_run_mode(void)
+{
+    sec_params = &sec_params_run_mode;
+    m_connection_param = &m_connection_param_run_mode;
+    m_scan_param = &m_scan_param_run_mode;
+}
+
+void onboard_set_sec_params_config_mode(void)
+{
+    sec_params = &sec_params_config_mode;
+    m_connection_param = &m_connection_param_config_mode;
+    m_scan_param = &m_scan_param_config_mode;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -125,7 +217,6 @@ void onboard_on_send_complete(void)
  *
  *  @return  Void.
  */
-
 void onboard_on_store_complete(void)
 {
     client_t * p_client;

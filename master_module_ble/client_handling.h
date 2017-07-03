@@ -81,7 +81,7 @@ ble_db_discovery_char_t * find_char_by_handle_value(uint16_t handle_value, clien
 bool write_characteristic_value(client_t * p_client, uint16_t uuid, uint8_t * data, uint16_t len);
 uint16_t search_for_client_configuring(void);
 bool check_client_state(uint16_t state, uint16_t index);
-void search_for_client_error(void);
+void search_for_client_event(void);
 void ignore_list_add(ble_gap_addr_t * p_peer_addr);
 bool ignore_list_search(ble_gap_addr_t * p_peer_addr);
 void scan_stop(void);
