@@ -40,7 +40,9 @@ typedef enum
     STATE_WAIT_WRITE_RSP       = 5,    /**< Wait for write response. */
     STATE_DISCONNECTING        = 6,    /**< Disconnect request is sent. */
     STATE_IDLE                 = 7,    /**< Idle state. */
-    STATE_ERROR                = 8     /**< Error state. */
+    STATE_ERROR                = 8,     /**< Error state. */
+    STATE_SERVICE_DISC_COMPLETE  = 9,
+    STATE_WAIT  = 10
 }
 client_state_t;
 
@@ -51,7 +53,7 @@ typedef struct
 {
     const uint8_t * device_name;
     ble_gap_addr_t  peer_addr;
-	  bool            bonded_flag;
+    bool            bonded_flag;
 }
 current_conn_device_t;
 
@@ -63,30 +65,35 @@ typedef struct
 {
     ble_db_discovery_t    srv_db;            /**< The DB Discovery module instance associated with this client. */
     dm_handle_t           handle;            /**< Device manager identifier for the device. */
-    const uint8_t *       device_name;       /**< Client Device Name. */
+    const uint8_t*        device_name;       /**< Client Device Name. */
     ble_gap_addr_t        peer_addr;         /**< Bluetooth Low Energy address. */
     sensorID_t            id;                /**< Bluetooth Low Energy address. */
     uint8_t               state;             /**< Client state. */
     uint8_t               srv_index;         /**< These two fields determine last found characteristic with notification properties. Used to enable services. */
     uint8_t               char_index;        /**<                                                                                                             */
+    uint8_t               discovered_srv;
+    uint8_t               external_id;
 }
 client_t;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /**@brief Functions declarations. */
-bool read_characteristic_value(client_t * p_client, uint16_t uuid);
-client_t * find_client_by_dev_name(const uint8_t * device_name, uint8_t len);
-ble_db_discovery_char_t * find_char_by_uuid(uint16_t char_uuid, client_t * p_client);
-ble_db_discovery_char_t * find_char_by_handle_value(uint16_t handle_value, client_t * p_client);
-bool write_characteristic_value(client_t * p_client, uint16_t uuid, uint8_t * data, uint16_t len);
+bool read_characteristic_value(client_t* p_client, uint16_t uuid);
+client_t* find_client_by_dev_name(const uint8_t* device_name, uint8_t len);
+client_t* find_client_by_peer_addr(const ble_gap_addr_t* peer_addr);
+uint8_t find_client_id_by_peer_addr(const ble_gap_addr_t* peer_addr);
+client_t* find_client_by_id(uint8_t id);
+ble_db_discovery_char_t* find_char_by_uuid(uint16_t char_uuid, client_t* p_client);
+ble_db_discovery_char_t* find_char_by_handle_value(uint16_t handle_value, client_t* p_client);
+bool write_characteristic_value(client_t* p_client, uint16_t uuid, uint8_t* data, uint16_t len);
 uint16_t search_for_client_configuring(void);
 bool check_client_state(uint16_t state, uint16_t index);
-void search_for_client_error(void);
-void ignore_list_add(ble_gap_addr_t * p_peer_addr);
-bool ignore_list_search(ble_gap_addr_t * p_peer_addr);
+void search_for_client_event(void);
+void ignore_list_add(ble_gap_addr_t* p_peer_addr);
+bool ignore_list_search(ble_gap_addr_t* p_peer_addr);
 void scan_stop(void);
 void scan_start(void);
-bool validate_device_name(uint8_t * device_name, uint16_t len, const uint8_t ** found_device_name);
+bool validate_device_name(uint8_t* device_name, uint16_t len, const uint8_t** found_device_name);
 void check_client_timeout(void);
 bool timers_init(void);
 uint8_t get_active_client_number(void);

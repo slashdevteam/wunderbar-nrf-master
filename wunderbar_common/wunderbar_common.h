@@ -33,7 +33,7 @@
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-#define MAX_DISCOVERY_SERVICES                            4
+#define MAX_DISCOVERY_SERVICES                            3
 /**@brief Service Relayr UUID. */
 #define SHORT_SERVICE_RELAYR_UUID                         0x2000
 
@@ -461,7 +461,7 @@ typedef enum
 
     // DATA_ID_DEV_CFG_APP         = 0x6,
 
-    DATA_ID_DEV_CENTRAL         = 0x7,
+    DATA_ID_DEV_CENTRAL         = MAX_CLIENTS,
 
     DATA_ID_RESPONSE_OK         = 0x64,
     DATA_ID_RESPONSE_ERROR      = 0x65,
@@ -521,6 +521,12 @@ typedef enum
     FIELD_ID_CONFIG_CLIENT_PASS              = 20,
     FIELD_ID_CONFIG_CLIENT_UUID              = 21,
     FIELD_ID_CONFIG_START_DISCOVERY          = 22,
+    FILED_ID_RUN_WRITE_RSP_OK                = 23,
+    FILED_ID_CONFIG_DISCOVERY_COMPLETE       = 24,
+    FILED_ID_CONFIG_CHAR_DONE                = 25,
+    FILED_ID_READ_CHAR                       = 26,
+    FILED_ID_WRITE_CHAR                      = 27,
+    FIELD_ID_RUN_ERROR                       = 0xFF,
 }
 field_id_config_t;
 
@@ -529,7 +535,8 @@ field_id_config_t;
 typedef enum
 {
     OPERATION_WRITE  = 0,
-    OPERATION_READ   = 1
+    OPERATION_READ   = 1,
+    OPERATION_NONE   = 0xFF
 }
 operation_t;
 
@@ -567,7 +574,13 @@ typedef struct
 }
 __attribute__((packed)) char_desc_t;
 
-#define SPI_PACKET_DATA_SIZE 24
+typedef struct
+{
+    uint8_t mac[6];
+    uint8_t name[BLE_DEVNAME_MAX_LEN + 1];
+} __attribute__((packed)) client_desc_t;
+
+#define SPI_PACKET_DATA_SIZE 20
 
 typedef struct
 {
@@ -584,7 +597,6 @@ __attribute__((packed)) spi_frame_t;
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 uint8_t sensors_get_msg_size(data_id_t sens_name, field_id_char_index_t msg_type);
-uint8_t sensor_get_char_index(uint8_t device_index, uint16_t char_uuid);
 uint8_t sensor_get_name_index(const uint8_t * device_name);
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

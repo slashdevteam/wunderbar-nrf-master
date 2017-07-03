@@ -114,7 +114,7 @@ void onboard_state_handle(void);
 bool onboard_store_passkey_from_ble(uint8_t passkey_index, uint8_t * data);
 bool onboard_store_passkey_from_wifi(uint8_t passkey_index, uint8_t * data);
 bool onboard_store_discovery_service(uint8_t* data);
-bool onboard_store_client_char_uuid(uint8_t client_index, uint8_t* data);
+// bool onboard_store_client_char_uuid(uint8_t client_index, uint8_t* data);
 bool onboard_store_client_device_name(uint8_t client_index, uint8_t* data);
 bool onboard_store_client_uuid(uint8_t client_index, uint8_t* data);
 void onboard_set_run_security_params(void);

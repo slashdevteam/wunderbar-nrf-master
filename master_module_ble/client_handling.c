@@ -42,11 +42,12 @@ uint8_t  client_device_names[MAX_CLIENTS][BLE_DEVNAME_MAX_LEN + 1] __attribute__
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /**@brief List of Characteristic UUID of sensors services. */
 
-char_desc_t client_char_uuids[MAX_CLIENTS][NUMBER_OF_RELAYR_CHARACTERISTICS + 4] __attribute__((aligned(4))); // = LIST_OF_SENSOR_CHARS;
-uint8_t client_char_uuids_index[MAX_CLIENTS] __attribute__((aligned(4)));
+// char_desc_t client_char_uuids[MAX_CLIENTS][NUMBER_OF_RELAYR_CHARACTERISTICS + 4] __attribute__((aligned(4))); // = LIST_OF_SENSOR_CHARS;
+// uint8_t client_char_uuids_index[MAX_CLIENTS] __attribute__((aligned(4)));
 // uint8_t client_char_uuids_index = 0;
 
 extern serivce_desc_t discovery_services[MAX_DISCOVERY_SERVICES];
+extern uint8_t          discovery_services_index;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -102,7 +103,7 @@ bool validate_device_name(uint8_t * device_name, uint16_t len, const uint8_t ** 
  *
  */
 
-client_t * is_device_connected(uint8_t * device_name, uint16_t len)
+client_t* is_device_connected(uint8_t * device_name, uint16_t len)
 {
     uint8_t cnt;
 
@@ -192,7 +193,7 @@ uint16_t search_for_client_configuring(void)
  * @return Void.
  */
 
-void search_for_client_error(void)
+void search_for_client_event(void)
 {
     uint32_t err_code;
     uint16_t cnt;
@@ -201,6 +202,7 @@ void search_for_client_error(void)
     {
         if(m_client[cnt].state == STATE_ERROR)
         {
+            APPL_LOG("[CL]: search_for_client_event() :sd_ble_gap_disconnect\r\n");
             err_code = sd_ble_gap_disconnect(m_client[cnt].srv_db.conn_handle, BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
             if(err_code == NRF_SUCCESS)
             {
@@ -212,6 +214,26 @@ void search_for_client_error(void)
             }
 
             return;
+        }
+        else if(m_client[cnt].state == STATE_SERVICE_DISC_COMPLETE)
+        {
+            client_desc_t client_identificator;
+            memcpy(client_identificator.mac, m_client[cnt].peer_addr.addr, 6);
+            memcpy(client_identificator.name, m_client[cnt].device_name, BLE_DEVNAME_MAX_LEN);
+            // ensure '\0' at the end of name
+            client_identificator.name[BLE_DEVNAME_MAX_LEN] = '\0';
+
+            spi_create_tx_packet(cnt, FILED_ID_CONFIG_DISCOVERY_COMPLETE, cnt, OPERATION_WRITE, (uint8_t*)&client_identificator, sizeof(client_desc_t));
+            APPL_LOG("[CL]: Discovery complete for client[%d] = %s with MAC = %02X:%02X:%02X:%02X:%02X:%02X\r\n",
+                      cnt,
+                      m_client[cnt].device_name,
+                      m_client[cnt].peer_addr.addr[0],
+                      m_client[cnt].peer_addr.addr[1],
+                      m_client[cnt].peer_addr.addr[2],
+                      m_client[cnt].peer_addr.addr[3],
+                      m_client[cnt].peer_addr.addr[4],
+                      m_client[cnt].peer_addr.addr[5]);
+            m_client[cnt].state = STATE_RUNNING;
         }
     }
 }
@@ -264,7 +286,7 @@ void scan_stop(void)
  * @return client context information or NULL upon failure.
  */
 
-static client_t * find_client_by_conn_handle(uint16_t conn_handle)
+static client_t* find_client_by_conn_handle(uint16_t conn_handle)
 {
     uint32_t i;
 
@@ -290,7 +312,7 @@ static client_t * find_client_by_conn_handle(uint16_t conn_handle)
  * @return client context information or NULL upon failure.
  */
 
-client_t * find_client_by_dev_name(const uint8_t * device_name, uint8_t len)
+client_t* find_client_by_dev_name(const uint8_t* device_name, uint8_t len)
 {
     uint8_t cnt;
 
@@ -305,6 +327,46 @@ client_t * find_client_by_dev_name(const uint8_t * device_name, uint8_t len)
         }
     }
     return NULL;
+}
+
+client_t* find_client_by_peer_addr(const ble_gap_addr_t* peer_addr)
+{
+    uint8_t cnt;
+
+    for(cnt = 0; cnt < MAX_CLIENTS; cnt++)
+    {
+        if((m_client[cnt].state != STATE_IDLE)
+            && ((memcmp(&m_client[cnt].peer_addr, peer_addr, sizeof(ble_gap_addr_t)) == 0)))
+        {
+            return &m_client[cnt];
+        }
+    }
+    return NULL;
+}
+
+uint8_t find_client_id_by_peer_addr(const ble_gap_addr_t* peer_addr)
+{
+    uint8_t cnt;
+
+    for(cnt = 0; cnt < MAX_CLIENTS; cnt++)
+    {
+        if((m_client[cnt].state != STATE_IDLE)
+            && ((memcmp(&m_client[cnt].peer_addr, peer_addr, sizeof(ble_gap_addr_t)) == 0)))
+        {
+            return cnt;
+        }
+    }
+    return DATA_ID_ERROR;
+}
+
+client_t* find_client_by_id(uint8_t id)
+{
+    client_t* _client = NULL;
+    if((id < MAX_CLIENTS) && (m_client[id].state != STATE_IDLE))
+    {
+        _client = &m_client[id];
+    }
+    return _client;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -610,46 +672,45 @@ static void service_relayr_dsc_evt_handler(ble_db_discovery_evt_t * p_evt)
 
 static void service_discovery_evt_handler(ble_db_discovery_evt_t* p_evt)
 {
-    uint32_t   err_code;
-    client_t * p_client;
-    ble_db_discovery_char_t * char_to_read = NULL;
+    client_t* p_client;
 
     // Find the client using the connection handle.
     p_client = find_client_by_conn_handle(p_evt->conn_handle);
-    p_client->state = STATE_ERROR;
 
     switch(p_evt->evt_type)
     {
 
-      case BLE_DB_DISCOVERY_COMPLETE:
-      {
-          APPL_LOG("[CL]: Discovery for service UUID = %x Complete\r\n", p_evt->params.discovered_db.srv_uuid);
+        case BLE_DB_DISCOVERY_COMPLETE:
+        {
+            p_client->discovered_srv++;
+            APPL_LOG("[CL]: Discovery for service UUID = 0x%x Complete [total services discovered = %d/%d]\r\n",
+                     p_evt->params.discovered_db.srv_uuid.uuid & 0xFFFF,
+                     p_client->discovered_srv,
+                     discovery_services_index);
+            if(p_client->discovered_srv == discovery_services_index)
+            {
+                p_client->external_id = sensor_get_name_index(p_client->device_name);
+                APPL_LOG("[CL]: Discovery for client %s Complete [total services discovered = %d]\r\n",
+                         p_client->device_name,
+                         p_client->discovered_srv);
+                p_client->state = STATE_SERVICE_DISC_COMPLETE;
+            }
+            break;
+        }
 
-          char_to_read = find_char_by_uuid(CHARACTERISTIC_SENSOR_ID_UUID, p_client);
-          if(char_to_read != NULL)
-          {
-              err_code = sd_ble_gattc_read(p_client->srv_db.conn_handle, char_to_read->characteristic.handle_value, 0);
-              if(err_code == NRF_SUCCESS)
-              {
-                  p_client->state = STATE_DEVICE_IDENTIFYING;
-              }
-              break;
-          }
+        case BLE_DB_DISCOVERY_ERROR:
+        {
+            APPL_LOG("[CL]: Discovery Error\r\n");
+            p_client->state = STATE_ERROR;
+            break;
+        }
 
-          break;
-      }
-
-      case BLE_DB_DISCOVERY_ERROR:
-      {
-          APPL_LOG("[CL]: Discovery Error\r\n");
-          break;
-      }
-
-      case BLE_DB_DISCOVERY_SRV_NOT_FOUND:
-      {
-          APPL_LOG("[CL]: Service UUID = %x Not Found\r\n");
-          break;
-      }
+        case BLE_DB_DISCOVERY_SRV_NOT_FOUND:
+        {
+            APPL_LOG("[CL]: Service UUID = %x Not Found\r\n");
+            p_client->state = STATE_ERROR;
+            break;
+        }
 
     }
 }
@@ -787,7 +848,7 @@ static void on_evt_write_rsp(ble_evt_t * p_ble_evt, client_t * p_client)
                     data_id_t data_id;
 
                     data_id = (data_id_t)sensor_get_name_index(p_client->device_name);
-                    spi_create_tx_packet(data_id, FIELD_ID_SENSOR_STATUS, OPERATION_WRITE, p_client->id, sizeof(sensorID_t));
+                    spi_create_tx_packet(data_id, FIELD_ID_SENSOR_STATUS, data_id, OPERATION_WRITE, p_client->id, sizeof(sensorID_t));
                     spi_lock_tx_packet(data_id);
 
                     // All characterisitics with notification properties are enabled.
@@ -807,7 +868,7 @@ static void on_evt_write_rsp(ble_evt_t * p_ble_evt, client_t * p_client)
         // Send OK write response through SPI.
         case STATE_WAIT_WRITE_RSP:
         {
-            spi_create_tx_packet(DATA_ID_RESPONSE_OK, 0xFF, 0xFF, NULL, 0);
+            spi_create_tx_packet(DATA_ID_RESPONSE_OK, FILED_ID_RUN_WRITE_RSP_OK, DATA_ID_DEV_CENTRAL, OPERATION_NONE, NULL, 0);
             p_client->state = STATE_RUNNING;
             break;
         }
@@ -830,7 +891,7 @@ static void on_evt_write_rsp(ble_evt_t * p_ble_evt, client_t * p_client)
  * @return Void.
  */
 
-static void on_evt_read_rsp(ble_evt_t * p_ble_evt, client_t * p_client)
+static void on_evt_read_rsp(ble_evt_t* p_ble_evt, client_t* p_client)
 {
     uint8_t cnt;
 
@@ -865,29 +926,32 @@ static void on_evt_read_rsp(ble_evt_t * p_ble_evt, client_t * p_client)
         case STATE_WAIT_READ_RSP:
         {
             data_id_t data_id;
-            uint8_t char_id;
-            ble_db_discovery_char_t * characterisitc;
+            ble_db_discovery_char_t* characterisitc;
 
             p_client->state = STATE_RUNNING;
 
-            data_id = (data_id_t)sensor_get_name_index(p_client->device_name);
-            characterisitc = find_char_by_handle_value(read_rsp->handle, p_client);
-            char_id = sensor_get_char_index(data_id, characterisitc->characteristic.uuid.uuid);
+            // data_id = (data_id_t)sensor_get_name_index(p_client->device_name);
+            data_id = (data_id_t)find_client_id_by_peer_addr(&p_client->peer_addr);
+            if(DATA_ID_ERROR != data_id)
+            {
+                characterisitc = find_char_by_handle_value(read_rsp->handle, p_client);
+                spi_create_tx_packet(data_id, characterisitc->characteristic.uuid.uuid, data_id, OPERATION_WRITE, read_rsp->data, read_rsp->len);
+            }
 
-            if(
-                (onboard_get_state() == ONBOARD_STATE_IDLE) &&
-                (data_id != DATA_ID_DEV_CENTRAL)
-              )
-            {
-                spi_create_tx_packet(data_id, char_id, OPERATION_WRITE, read_rsp->data, read_rsp->len);
-            }
-            else if(
-                     (onboard_get_state() != ONBOARD_STATE_IDLE) &&
-                     (data_id == DATA_ID_DEV_CENTRAL)
-                   )
-            {
-                onboard_parse_data(char_id, read_rsp->data, read_rsp->len);
-            }
+            // if(
+            //     (onboard_get_state() == ONBOARD_STATE_IDLE) &&
+            //     (data_id != DATA_ID_DEV_CENTRAL)
+            //   )
+            // {
+            //     spi_create_tx_packet(data_id, characterisitc->characteristic.uuid.uuid, data_id, OPERATION_WRITE, read_rsp->data, read_rsp->len);
+            // }
+            // else if(
+            //          (onboard_get_state() != ONBOARD_STATE_IDLE) &&
+            //          (data_id == DATA_ID_DEV_CENTRAL)
+            //        )
+            // {
+            //     onboard_parse_data(characterisitc->characteristic.uuid.uuid, read_rsp->data, read_rsp->len);
+            // }
             break;
         }
     }
@@ -914,7 +978,6 @@ static void on_evt_hvx(ble_evt_t * p_ble_evt, client_t * p_client)
     {
         data_id_t            data_id;
         ble_gattc_evt_hvx_t *     hvx;
-        uint8_t    char_id;
         ble_db_discovery_char_t * characterisitc;
 
         hvx = &p_ble_evt->evt.gattc_evt.params.hvx;
@@ -922,9 +985,8 @@ static void on_evt_hvx(ble_evt_t * p_ble_evt, client_t * p_client)
         data_id = (data_id_t)sensor_get_name_index(p_client->device_name);
 
         characterisitc = find_char_by_handle_value(hvx->handle, p_client);
-        char_id = sensor_get_char_index(data_id, characterisitc->characteristic.uuid.uuid);
 
-        spi_create_tx_packet(data_id, char_id, OPERATION_WRITE, hvx->data, hvx->len);
+        spi_create_tx_packet(data_id, characterisitc->characteristic.uuid.uuid, data_id, OPERATION_WRITE, hvx->data, hvx->len);
 
         APPL_LOG("[CL]: Notification-> ConHandle:  %d; Handle:  0x%X; Device Name: %s;  Value: 0x",
                 p_client->srv_db.conn_handle, hvx->handle, p_client->device_name);
@@ -1091,6 +1153,7 @@ void client_handling_init(void)
     for (i = 0; i < MAX_CLIENTS; i++)
     {
         m_client[i].state  = STATE_IDLE;
+        m_client[i].discovered_srv  = 0;
     }
 
     db_discovery_init();
@@ -1197,7 +1260,7 @@ uint32_t client_handling_destroy(const dm_handle_t * p_handle)
 
         data_id = (data_id_t)sensor_get_name_index(p_client->device_name);
         memset((uint8_t *)p_client->id, 0, 8);
-        spi_create_tx_packet(data_id, FIELD_ID_SENSOR_STATUS, OPERATION_READ, NULL, 0);
+        spi_create_tx_packet(data_id, FIELD_ID_SENSOR_STATUS, data_id, OPERATION_READ, NULL, 0);
 
         p_client->state = STATE_IDLE;
     }

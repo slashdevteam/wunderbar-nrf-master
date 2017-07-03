@@ -14,7 +14,7 @@
 /**@brief Extern variables. */
 
 extern const uint8_t     client_device_names[MAX_CLIENTS][BLE_DEVNAME_MAX_LEN + 1];
-extern const char_desc_t client_char_uuids[MAX_CLIENTS][NUMBER_OF_RELAYR_CHARACTERISTICS + 4];
+// extern const char_desc_t client_char_uuids[MAX_CLIENTS][NUMBER_OF_RELAYR_CHARACTERISTICS + 4];
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -194,7 +194,7 @@ uint8_t sensors_get_msg_size(data_id_t sens_id, field_id_char_index_t msg_type)
 uint8_t sensor_get_name_index(const uint8_t * device_name)
 {
     data_id_t cnt;
-    for(cnt = DATA_ID_DEV_HTU; cnt <= MAX_CLIENTS; cnt++)
+    for(cnt = 0; cnt <= MAX_CLIENTS; cnt++)
     {
         if(device_name == client_device_names[cnt])
         {
@@ -204,27 +204,3 @@ uint8_t sensor_get_name_index(const uint8_t * device_name)
     return 0xFF;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/**@brief This function returns index of entry in client_char_uuids array based on given UUID.
- *
- * @param char_uuid UUID of characteristic.
- *
- * @return    Index of entry.
- * @return    0xFF if there is no such entry.
- *
- */
-
-uint8_t sensor_get_char_index(uint8_t device_index, uint16_t char_uuid)
-{
-    field_id_char_index_t cnt;
-    for(cnt = FIELD_ID_CHAR_SENSOR_ID; cnt <= FIELD_ID_CHAR_FIRMWARE_REVISION; cnt++)
-    {
-        if(char_uuid == client_char_uuids[device_index][cnt].uuid)
-        {
-            return (uint8_t)cnt;
-        }
-    }
-    return 0xFF;
-}

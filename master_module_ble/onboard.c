@@ -26,8 +26,8 @@ extern passkey_t        sensors_passkeys[MAX_CLIENTS];
 extern sensorID_t       client_device_uuids[MAX_CLIENTS];
 extern serivce_desc_t   discovery_services[MAX_DISCOVERY_SERVICES];
 extern uint8_t          discovery_services_index;
-extern uint8_t          client_char_uuids_index[MAX_CLIENTS];
-extern char_desc_t      client_char_uuids[MAX_CLIENTS][NUMBER_OF_RELAYR_CHARACTERISTICS + 4];
+// extern uint8_t          client_char_uuids_index[MAX_CLIENTS];
+// extern char_desc_t      client_char_uuids[MAX_CLIENTS][NUMBER_OF_RELAYR_CHARACTERISTICS + 4];
 // const  uint16_t         ONBOARD_CHAR_UUIDS[NUMBER_OF_ONBOARD_CHARACTERISTICS] = LIST_OF_ONBOARD_CHARS;
 
 onboard_mode_t  onboard_mode  = ONBOARD_MODE_IDLE;
@@ -280,7 +280,7 @@ void onboard_on_store_complete(void)
 
         default:
         {
-            spi_create_tx_packet(DATA_ID_DEV_CENTRAL, FIELD_ID_CONFIG_ACK, OPERATION_WRITE, NULL, 0);
+            spi_create_tx_packet(DATA_ID_DEV_CENTRAL, FIELD_ID_CONFIG_ACK, DATA_ID_DEV_CENTRAL, OPERATION_WRITE, NULL, 0);
         }
     }
 }
@@ -308,17 +308,17 @@ bool onboard_store_discovery_service(uint8_t* data)
     return false;
 }
 
-bool onboard_store_client_char_uuid(uint8_t client_index, uint8_t* data)
-{
-    uint8_t client_char_index = client_char_uuids_index[client_index];
-    if(MAX_NUMBER_OF_CHARACTERISTICS > client_char_index)
-    {
-        memcpy((uint8_t*)&client_char_uuids[client_index][client_char_index], data, sizeof(char_desc_t));
-        client_char_uuids_index[client_index]++;
-        return true;
-    }
-    return false;
-}
+// bool onboard_store_client_char_uuid(uint8_t client_index, uint8_t* data)
+// {
+//     uint8_t client_char_index = client_char_uuids_index[client_index];
+//     if(MAX_NUMBER_OF_CHARACTERISTICS > client_char_index)
+//     {
+//         memcpy((uint8_t*)&client_char_uuids[client_index][client_char_index], data, sizeof(char_desc_t));
+//         client_char_uuids_index[client_index]++;
+//         return true;
+//     }
+//     return false;
+// }
 
 bool onboard_store_client_device_name(uint8_t client_index, uint8_t* data)
 {
@@ -560,7 +560,7 @@ void onboard_state_handle(void)
         case ONBOARD_STATE_ERROR:
         {
             APPL_LOG("[OB]: Config ERROR.\r\n");
-            spi_create_tx_packet(DATA_ID_DEV_CENTRAL, FIELD_ID_CONFIG_ERROR, OPERATION_WRITE, NULL, 0);
+            spi_create_tx_packet(DATA_ID_DEV_CENTRAL, FIELD_ID_CONFIG_ERROR, DATA_ID_DEV_CENTRAL, OPERATION_WRITE, NULL, 0);
             onboard_set_state(ONBOARD_STATE_IDLE);
             break;
         }
@@ -568,7 +568,7 @@ void onboard_state_handle(void)
         case ONBOARD_STATE_COMPLETE:
         {
             APPL_LOG("[OB]: Config complete.\r\n");
-            spi_create_tx_packet(DATA_ID_DEV_CENTRAL, FIELD_ID_CONFIG_COMPLETE, OPERATION_WRITE, NULL, 0);
+            spi_create_tx_packet(DATA_ID_DEV_CENTRAL, FIELD_ID_CONFIG_COMPLETE, DATA_ID_DEV_CENTRAL, OPERATION_WRITE, NULL, 0);
             onboard_set_state(ONBOARD_STATE_IDLE);
             break;
         }

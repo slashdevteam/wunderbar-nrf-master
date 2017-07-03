@@ -60,7 +60,7 @@ extern const ble_gap_scan_params_t* m_scan_param;
 const uint8_t     DEFAULT_CLIENT_PASSKEY[8]   = {0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x00, 0x00};
 const serivce_desc_t  DEFAULT_DISCOVERY_SERVICE   = {0x0, BLE_UUID_TYPE_UNKNOWN, USE_NEVER};
 const char        DEFAULT_CLIENT_DEVICE_NAME[BLE_DEVNAME_MAX_LEN+1] = "\0";
-const char_desc_t    DEFAULT_CLIENT_CHARACTERISTIC = {0x0, 0x0, ACCESS_NONE};
+const char_desc_t    DEFAULT_CLIENT_CHARACTERISTIC = {0x0};
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -210,15 +210,17 @@ static api_result_t device_manager_event_handler(const dm_handle_t    * p_handle
                 err_code = client_handling_create(p_handle, p_event->event_param.p_gap_param->conn_handle, &current_conn_device);
                 if(err_code != NRF_SUCCESS)
                 {
+                    APPL_LOG("[AP]: [CI 0x%02X]: sd_ble_gap_disconnect err_code = %d\r\n", p_handle->connection_id, err_code);
                     sd_ble_gap_disconnect(p_handle->connection_id, 0x13);
                 }
             }
             else
             {
-                              if(onboard_get_mode() != ONBOARD_MODE_CONFIG)
-                                {
-                                        ignore_list_add(&current_conn_device.peer_addr);
-                                }
+                if(onboard_get_mode() != ONBOARD_MODE_CONFIG)
+                {
+                        ignore_list_add(&current_conn_device.peer_addr);
+                }
+                APPL_LOG("[AP]: [CI 0x%02X]: sd_ble_gap_disconnect 2\r\n", p_handle->connection_id);
                 sd_ble_gap_disconnect(p_handle->connection_id, 0x13);
             }
 
@@ -239,14 +241,15 @@ static api_result_t device_manager_event_handler(const dm_handle_t    * p_handle
             APPL_LOG("[AP]: [0x%02X] >> DM_LINK_SECURED_IND, result 0x%08X\r\n", p_handle->connection_id, event_result);
             APPL_LOG("[AP]: [0x%02X] << DM_LINK_SECURED_IND\r\n", p_handle->connection_id);
 
-                      if(current_conn_device.bonded_flag == true)
-                        {
-                                err_code = client_handling_create(p_handle, p_event->event_param.p_gap_param->conn_handle, &current_conn_device);
-                                if(err_code != NRF_SUCCESS)
-                                {
-                                        sd_ble_gap_disconnect(p_handle->connection_id, 0x13);
-                                }
-                        }
+            if(current_conn_device.bonded_flag == true)
+            {
+                err_code = client_handling_create(p_handle, p_event->event_param.p_gap_param->conn_handle, &current_conn_device);
+                if(err_code != NRF_SUCCESS)
+                {
+                    APPL_LOG("[AP]: [CI 0x%02X]: sd_ble_gap_disconnect 3 - err_code = %d\r\n", p_handle->connection_id, err_code);
+                    sd_ble_gap_disconnect(p_handle->connection_id, 0x13);
+                }
+            }
 
             break;
         }
@@ -358,11 +361,11 @@ static uint32_t adv_report_parse(uint8_t type, data_t * p_advdata, data_t * p_ty
 static void on_ble_evt(ble_evt_t * p_ble_evt)
 {
     uint32_t         err_code;
-    static uint16_t  service_uuid_list[3] = {SHORT_SERVICE_RELAYR_UUID, BLE_UUID_DEVICE_INFORMATION_SERVICE, BLE_UUID_BATTERY_SERVICE};
+    static uint16_t  service_uuid_list[3]; // = {SHORT_SERVICE_RELAYR_UUID, BLE_UUID_DEVICE_INFORMATION_SERVICE, BLE_UUID_BATTERY_SERVICE};
 
-    if(onboard_get_mode() == ONBOARD_MODE_DISCOVERY)
+    for(uint8_t service_uuid = 0; service_uuid < 3; ++service_uuid)
     {
-        service_uuid_list[0] = SHORT_SERVICE_CONFIG_UUID;
+        service_uuid_list[service_uuid] = discovery_services[service_uuid].uuid;
     }
 
     switch (p_ble_evt->header.evt_id)
@@ -377,7 +380,7 @@ static void on_ble_evt(ble_evt_t * p_ble_evt)
                 return;
             }
 
-            ble_gap_addr_t * peer_addr = &p_ble_evt->evt.gap_evt.params.adv_report.peer_addr;
+            ble_gap_addr_t* peer_addr = &p_ble_evt->evt.gap_evt.params.adv_report.peer_addr;
 
             if(ignore_list_search(peer_addr) == true)
             {
@@ -406,9 +409,10 @@ static void on_ble_evt(ble_evt_t * p_ble_evt)
                         APPL_LOG("[AP]: Invalid device name = %14s. Adding to ignore list\r\n", type_data.p_data);
                         ignore_list_add(&p_ble_evt->evt.gap_evt.params.adv_report.peer_addr);
                     }
-                    else if(find_client_by_dev_name(type_data.p_data, type_data.data_len) != NULL)
+                    // else if(find_client_by_dev_name(type_data.p_data, type_data.data_len) != NULL)
+                    else if(find_client_by_peer_addr(peer_addr) != NULL)
                     {
-                        APPL_LOG("[AP]: Device with this name is already connected.\r\n");
+                        APPL_LOG("[AP]: Device with this address is already connected.\r\n");
                     }
                     else
                     {
@@ -654,13 +658,13 @@ bool pstorage_driver_init()
     }
 
     // read possible client characteristics
-    for(uint32_t characteristic = 0; characteristic < MAX_NUMBER_OF_CHARACTERISTICS; ++characteristic)
-    {
-        if(!init_global((uint8_t*)&client_char_uuids[characteristic], (uint8_t*)&DEFAULT_DISCOVERY_SERVICE, sizeof(ble_uuid_t)))
-        {
-            return false;
-        }
-    }
+    // for(uint32_t characteristic = 0; characteristic < MAX_NUMBER_OF_CHARACTERISTICS; ++characteristic)
+    // {
+    //     if(!init_global((uint8_t*)&client_char_uuids[characteristic], (uint8_t*)&DEFAULT_DISCOVERY_SERVICE, sizeof(ble_uuid_t)))
+    //     {
+    //         return false;
+    //     }
+    // }
     // read client parameters
     for(uint32_t client = 0; client < MAX_CLIENTS; ++client)
     {
@@ -698,13 +702,15 @@ static void power_manage(void)
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /**@brief Function for application main entry.
  */
-
+#include "gpio.h"
 int main(void)
 {
     // Minimal init - clock/debug/permanent storage/SPI/BLE
     debug_init();
     APPL_LOG("[AP]: SD Clock init\r\n\r\n");
     softdevice_clock_init();
+
+
 
     APPL_LOG("[AP]: Pstorage init\r\n\r\n");
     pstorage_driver_init();
@@ -720,6 +726,7 @@ int main(void)
     {
         if(ONBOARD_MODE_IDLE == onboard_get_mode() || ONBOARD_MODE_CONFIG == onboard_get_mode())
         {
+            spi_check_tx_ready();
             power_manage();
         }
         else
@@ -739,8 +746,8 @@ int main(void)
                 power_manage();
                 onboard_state_handle();
                 pstorage_driver_run();
+                search_for_client_event();
                 spi_check_tx_ready();
-                search_for_client_error();
                 if(ONBOARD_MODE_RUN != onboard_get_mode() && ONBOARD_MODE_DISCOVERY != onboard_get_mode())
                 {
                     APPL_LOG("[AP]: Switch to mode = %d\r\n\r\n", onboard_get_mode());
