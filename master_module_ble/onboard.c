@@ -100,6 +100,9 @@ onboard_mode_t  onboard_mode  = ONBOARD_MODE_IDLE;
 onboard_state_t onboard_state = ONBOARD_STATE_IDLE;
 static onboard_characteristics_t current_char;
 
+static const uint16_t service_uuid_list_config_mode[3] = {SHORT_SERVICE_CONFIG_UUID, BLE_UUID_DEVICE_INFORMATION_SERVICE, BLE_UUID_BATTERY_SERVICE};
+static const uint16_t service_uuid_list_run_mode[3]    = {SHORT_SERVICE_RELAYR_UUID, BLE_UUID_DEVICE_INFORMATION_SERVICE, BLE_UUID_BATTERY_SERVICE};
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -145,18 +148,17 @@ void onboard_set_state(onboard_state_t new_state)
     onboard_state = new_state;
 }
 
-void onboard_set_sec_params_run_mode(void)
+void onboard_set_sec_params(onboard_mode_t onboard_mode)
 {
-    sec_params = &sec_params_run_mode;
-    m_connection_param = &m_connection_param_run_mode;
-    m_scan_param = &m_scan_param_run_mode;
-}
-
-void onboard_set_sec_params_config_mode(void)
-{
-    sec_params = &sec_params_config_mode;
-    m_connection_param = &m_connection_param_config_mode;
-    m_scan_param = &m_scan_param_config_mode;
+    if (ONBOARD_MODE_CONFIG == onboard_mode) {
+        sec_params = &sec_params_config_mode;
+        m_connection_param = &m_connection_param_config_mode;
+        m_scan_param = &m_scan_param_config_mode;
+    } else {
+        sec_params = &sec_params_run_mode;
+        m_connection_param = &m_connection_param_run_mode;
+        m_scan_param = &m_scan_param_run_mode;
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -519,6 +521,15 @@ void onboard_state_handle(void)
 
         default:{}
     }
+}
+
+ const uint16_t* get_service_list(void) {
+     const uint16_t* serv_list = service_uuid_list_config_mode;
+
+    if (ONBOARD_MODE_RUN == onboard_get_mode()) {
+        serv_list = service_uuid_list_run_mode;
+    }
+    return serv_list;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

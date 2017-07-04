@@ -26,21 +26,24 @@
 #include "device_manager.h"
 #include "device_manager_cnfg.h"
 #include "wunderbar_common.h"
+#include "onboard.h"
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /**@brief Client states. */
 
 typedef enum
 {
-    STATE_SERVICE_DISC         = 0,    /**< Service discovery state. */
-    STATE_DEVICE_IDENTIFYING   = 1,    /**< Check Wunderbar ID. */
-    STATE_NOTIF_ENABLE         = 2,    /**< State where the request to enable notifications is sent to the peer. . */
-    STATE_RUNNING              = 3,    /**< Wait for read response. */
-    STATE_WAIT_READ_RSP        = 4,    /**< Running state. */
-    STATE_WAIT_WRITE_RSP       = 5,    /**< Wait for write response. */
-    STATE_DISCONNECTING        = 6,    /**< Disconnect request is sent. */
-    STATE_IDLE                 = 7,    /**< Idle state. */
-    STATE_ERROR                = 8     /**< Error state. */
+    STATE_SERVICE_DISC         = 0,    // Service discovery state.
+    STATE_DEVICE_IDENTIFYING   = 1,    // Check Wunderbar ID.
+    STATE_NOTIF_ENABLE         = 2,    // State where the request to enable notifications is sent to the peer.
+    STATE_RUNNING              = 3,    // Running state.
+    STATE_WAIT_READ_RSP        = 4,    // Wait for read response.
+    STATE_WAIT_WRITE_RSP       = 5,    // Wait for write response.
+    STATE_DISCONNECTING        = 6,    // Disconnect request is sent.
+    STATE_IDLE                 = 7,    // Idle state.
+    STATE_ERROR                = 8,    // Error state.
+    STATE_CONFIGURE            = 9,    // Sensor under configuration
+    STATE_CHECK_CONFIG         = 10    // Validating config
 }
 client_state_t;
 
@@ -79,6 +82,7 @@ client_t * find_client_by_dev_name(const uint8_t * device_name, uint8_t len);
 ble_db_discovery_char_t * find_char_by_uuid(uint16_t char_uuid, client_t * p_client);
 ble_db_discovery_char_t * find_char_by_handle_value(uint16_t handle_value, client_t * p_client);
 bool write_characteristic_value(client_t * p_client, uint16_t uuid, uint8_t * data, uint16_t len);
+bool write_char_value(client_t * p_client, uint16_t uuid, uint8_t * data, uint16_t len);
 uint16_t search_for_client_configuring(void);
 bool check_client_state(uint16_t state, uint16_t index);
 void search_for_client_event(void);
@@ -97,7 +101,7 @@ uint8_t get_active_client_number(void);
 /**@brief Funtion for initializing the module.
  */
 
-void client_handling_init(void);
+void client_handling_init(onboard_mode_t onboard_mode);
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

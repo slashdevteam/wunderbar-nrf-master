@@ -28,6 +28,11 @@
 #define ONBOARD_CHAR_MASTER_MODULE_SEC        0x2015
 #define ONBOARD_CHAR_MASTER_MODULE_URL        0x2016
 
+/**@brief  Default values for sensors passkeys. These values are used if corresponding block of persistent storage is empty. */
+#define PASSKEY_SIZE 8
+static const uint8_t DEFAULT_SENSOR_PASSKEY[PASSKEY_SIZE]   = {0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x00, 0x00};
+// const uint8_t  DEFAULT_SENSOR_PASSKEY[8]   = {0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31};
+
 /**< List of used characteristics UUID. */
 #define LIST_OF_ONBOARD_CHARS  {                                   \
                                 ONBOARD_CHAR_HTU_GYRO_LIGHT_PASS,  \
@@ -105,8 +110,7 @@ onboard_state_t;
 onboard_mode_t onboard_get_mode(void);
 void onboard_set_mode(onboard_mode_t new_mode);
 void onboard_set_state(onboard_state_t new_state);
-void onboard_set_sec_params_run_mode(void);
-void onboard_set_sec_params_config_mode(void);
+void onboard_set_sec_params(onboard_mode_t onboard_mode);
 void onboard_on_store_complete(void);
 void onboard_on_send_complete(void);
 void onboard_parse_data(uint8_t field_id, uint8_t * data, uint8_t len);
@@ -114,6 +118,7 @@ onboard_state_t onboard_get_state(void);
 void onboard_state_handle(void);
 bool onboard_store_passkey_from_ble(uint8_t passkey_index, uint8_t * data);
 bool onboard_store_passkey_from_wifi(uint8_t passkey_index, uint8_t * data);
+const uint16_t* get_service_list(void);
 
 #endif // ONBOARD_H__
 

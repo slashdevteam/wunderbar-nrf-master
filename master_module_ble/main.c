@@ -53,10 +53,6 @@ extern const ble_gap_sec_params_t*  sec_params;
 extern const ble_gap_conn_params_t* m_connection_param;
 extern const ble_gap_scan_params_t* m_scan_param;
 
-/**@brief  Default values for sensors passkeys. These values are used if corresponding block of persistent storage is empty. */
-// const uint8_t  DEFAULT_SENSOR_PASSKEY[8]   = {0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x00, 0x00};
-const uint8_t  DEFAULT_SENSOR_PASSKEY[8]   = {0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31};
-
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 static dm_application_instance_t m_dm_app_id;              /**< Application identifier. */
@@ -347,8 +343,8 @@ static uint32_t adv_report_parse(uint8_t type, data_t * p_advdata, data_t * p_ty
 static void on_ble_evt(ble_evt_t * p_ble_evt)
 {
     uint32_t         err_code;
-    static uint16_t  service_uuid_list[3] = {SHORT_SERVICE_RELAYR_UUID, BLE_UUID_DEVICE_INFORMATION_SERVICE, BLE_UUID_BATTERY_SERVICE};
-    // static uint16_t  service_uuid_list[3] = {SHORT_SERVICE_CONFIG_UUID, BLE_UUID_DEVICE_INFORMATION_SERVICE, BLE_UUID_BATTERY_SERVICE};
+    // static uint16_t  service_uuid_list = {SHORT_SERVICE_RELAYR_UUID, BLE_UUID_DEVICE_INFORMATION_SERVICE, BLE_UUID_BATTERY_SERVICE};
+    // // static uint16_t  service_uuid_list[3] = {SHORT_SERVICE_CONFIG_UUID, BLE_UUID_DEVICE_INFORMATION_SERVICE, BLE_UUID_BATTERY_SERVICE};
 
     switch (p_ble_evt->header.evt_id)
     {
@@ -377,7 +373,7 @@ static void on_ble_evt(ble_evt_t * p_ble_evt)
             err_code = adv_report_parse(BLE_GAP_AD_TYPE_16BIT_SERVICE_UUID_COMPLETE, &adv_data, &type_data);
 
             // Verify if list of services matches target.
-            if( (err_code == NRF_SUCCESS) && (memcmp((uint8_t *)&service_uuid_list, type_data.p_data, type_data.data_len) == 0))
+            if( (err_code == NRF_SUCCESS) && (memcmp((uint8_t *)get_service_list(), type_data.p_data, type_data.data_len) == 0))
             {
                 err_code = adv_report_parse(BLE_GAP_AD_TYPE_COMPLETE_LOCAL_NAME, &adv_data, &type_data);
 
@@ -388,7 +384,7 @@ static void on_ble_evt(ble_evt_t * p_ble_evt)
 
                     if(validate_device_name(type_data.p_data, type_data.data_len, &found_device_name) == false)
                     {
-                        APPL_LOG("[AP]: Invalid device name. Adding to ignore list\r\n");
+                        APPL_LOG("[AP]: Invalid device name %s len %d. Adding to ignore list\r\n", type_data.p_data, type_data.data_len);
                         ignore_list_add(&p_ble_evt->evt.gap_evt.params.adv_report.peer_addr);
                     }
                     else if(find_client_by_dev_name(type_data.p_data, type_data.data_len) != NULL)
@@ -707,15 +703,17 @@ int main(void)
     // main loop
     while(true)
     {
-        if(ONBOARD_MODE_IDLE == onboard_get_mode() || ONBOARD_MODE_CONFIG == onboard_get_mode())
+        if(ONBOARD_MODE_IDLE == onboard_get_mode())
         {
             spi_check_tx_ready();
             power_manage();
         }
         else
         {
-            APPL_LOG("[AP]: Client init\r\n\r\n");
-            client_handling_init();
+            APPL_LOG("[AP]: Client init, onboard mode %d\r\n\r\n", onboard_get_mode());
+            client_handling_init(onboard_get_mode());
+            onboard_set_sec_params(onboard_get_mode());
+
 
             APPL_LOG("[AP]: DM init\r\n\r\n");
             device_manager_init(sec_params);
