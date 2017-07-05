@@ -27,6 +27,8 @@
 
 extern const ble_gap_scan_params_t * m_scan_param;   /**< Scan parameters requested for scanning and connection. */
 
+extern passkey_t        sensors_passkey[MAX_CLIENTS];
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /**@brief Static global variables. */
 
@@ -632,6 +634,8 @@ static void service_config_dsc_evt_handler(ble_db_discovery_evt_t * p_evt)
 
       case BLE_DB_DISCOVERY_COMPLETE:
       {
+            APPL_LOG("[CL]: Discovery Relayr Sensor Config Complete\r\n");
+            
             char_to_read = find_char_by_uuid(CHARACTERISTIC_SENSOR_PASSKEY_UUID, p_client);
             APPL_LOG("[CL]: Char to read 0x%X\r\n", (uint32_t)(char_to_read));
             if(char_to_read != NULL)
@@ -863,7 +867,7 @@ static void on_evt_read_rsp(ble_evt_t * p_ble_evt, client_t * p_client)
 
     ble_gattc_evt_read_rsp_t * read_rsp = &p_ble_evt->evt.gattc_evt.params.read_rsp;
 
-    APPL_LOG("[CL]: Receive response of handle: 0X%X -> ", p_ble_evt->evt.gattc_evt.params.read_rsp.handle);
+    APPL_LOG("[CL]: Receive response of handle: 0x%X -> ", p_ble_evt->evt.gattc_evt.params.read_rsp.handle);
     for(cnt = 0; cnt < read_rsp->len; cnt++)
     {
         APPL_LOG("%02x", read_rsp->data[cnt]);
@@ -890,44 +894,50 @@ static void on_evt_read_rsp(ble_evt_t * p_ble_evt, client_t * p_client)
 
         case STATE_CHECK_CONFIG:
         {
-            
-            int password_match = memcmp(DEFAULT_SENSOR_PASSKEY, (uint8_t *)&read_rsp->data, PASSKEY_SIZE);
+            const uint8_t sensor_id = sensor_get_name_index(p_client->device_name);
+            if (0xFF == sensor_id) {
+                APPL_LOG("[CL]: Critical error, wrong device name %s \r\n", p_client->device_name);
+            }
 
-            if (0 == password_match) {
-                APPL_LOG("[CL]: Requested password match targets");
+            const bool password_match = (0 == memcmp(sensors_passkey[sensor_id], (uint8_t *)&read_rsp->data, PASSKEY_SIZE));
 
-                uint32_t err_code = sd_ble_gap_disconnect(m_client[cnt].srv_db.conn_handle, 0x13);
+            if (password_match) {
+                APPL_LOG("[CL]: Requested password for client %s matches targets 0x%X%X%X%X%X%X \r\n", p_client->device_name, read_rsp->data[0],
+                read_rsp->data[1],read_rsp->data[2],read_rsp->data[3],read_rsp->data[4],read_rsp->data[5] );
+
+                APPL_LOG("[CL]: Connection handle %d \r\n", p_client->srv_db.conn_handle );
+
+                client_t * client = find_client_by_dev_name(p_client->device_name, 0);
+
+                APPL_LOG("[CL]: Connection handle %d \r\n", client->srv_db.conn_handle );
+
+                uint32_t err_code = sd_ble_gap_disconnect(client->srv_db.conn_handle, 0x13);
                 if(err_code == NRF_SUCCESS)
                 {
                     m_client[cnt].state = STATE_DISCONNECTING;
-                }
-                if(err_code > NRF_ERROR_BUSY)
-                {
-                    m_client[cnt].state = STATE_IDLE;
+                } else {
+                    APPL_LOG("[CL]: Disconnect failed with status %d \r\n", err_code);
+
+                    if(err_code > NRF_ERROR_BUSY)
+                    {
+                        m_client[cnt].state = STATE_IDLE;
+                    }
                 }
 
-                return;
+                // if (get_active_client_number() < DEVICE_MANAGER_MAX_CONNECTIONS)
+                // {
+                //     scan_start();
+                // }
             } else {
-                APPL_LOG("[CL]: Requested password differs on the target, commencing config 0x%x", (char*)find_char_by_uuid(CHARACTERISTIC_SENSOR_PASSKEY_UUID, p_client));
+                APPL_LOG("[CL]: Requested password differs on the target, commencing config 0x%x \r\n", (char*)find_char_by_uuid(CHARACTERISTIC_SENSOR_PASSKEY_UUID, p_client));
 
+                const uint8_t sensor_id = sensor_get_name_index(p_client->device_name);
+                if (0xFF == sensor_id) {
+                    APPL_LOG("[CL]: Critical error, wrong device name %s \r\n", p_client->device_name);
+                }
 
-                write_char_value(p_client, CHARACTERISTIC_SENSOR_PASSKEY_UUID, (uint8_t*)DEFAULT_SENSOR_PASSKEY, PASSKEY_SIZE);
-            // uint8_t  DEFAULT_SENSOR_PASSKEY[8]   = {0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x00, 0x00};
-            // ble_gattc_write_params_t  p_write_params = 0;
+                write_char_value(p_client, CHARACTERISTIC_SENSOR_PASSKEY_UUID, sensors_passkey[sensor_id], PASSKEY_SIZE);
 
-            // p_write_params.write_op = BLE_GATT_OP_WRITE_REQ;
-
-            // char_to_read = find_char_by_uuid(CHARACTERISTIC_SENSOR_PASSKEY_UUID, p_client);
-            //   if(char_to_read != NULL)
-            //   {
-            //       err_code = sd_ble_gattc_write(p_client->srv_db.conn_handle, char_to_read->characteristic.handle_value, &p_write_params);
-            //       if(err_code == NRF_SUCCESS)
-            //       {
-            //           p_client->state = STATE_DEVICE_IDENTIFYING;
-            //       }
-            //       break;
-            //   }
-            //   write_characteristic_value(p_client, CHARACTERISTIC_SENSOR_PASSKEY_UUID, DEFAULT_SENSOR_PASSKEY,sizeof(DEFAULT_SENSOR_PASSKEY));
                 p_client->state = STATE_CONFIGURE;
             }
 
@@ -1139,9 +1149,18 @@ void client_handling_ble_evt_handler(ble_evt_t * p_ble_evt)
 
 static void db_discovery_init(void)
 {
+    APPL_LOG("[CL]: Initialising DB discovery, current status: ");
     ble_db_discovery_init_t db_discovery_init_obj;
 
+    if (ble_db_is_initialised()) {
+         APPL_LOG("already initialised, restarting\r\n");
+         ble_db_discovery_close();
+    } else {
+         APPL_LOG("clean\r\n");
+    }
+
     uint32_t err_code = ble_db_discovery_init(&db_discovery_init_obj);
+    APPL_LOG("[CL]: DB discovery init done, err_code: %d\r\n", err_code);
     APP_ERROR_CHECK(err_code);
 }
 

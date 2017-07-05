@@ -288,10 +288,9 @@ void onboard_on_store_complete(void)
  *
  *  @return  false in case that error is occurred, otherwise true.
  */
-
 bool onboard_store_passkey_from_wifi(uint8_t passkey_index, uint8_t * data)
 {
-    memcpy((uint8_t*)&sensors_passkey[passkey_index], data, 6);
+    memcpy((uint8_t*)&sensors_passkey[passkey_index], data, PASSKEY_SIZE);
     return pstorage_driver_request_store((uint8_t*)(&sensors_passkey[passkey_index]));
 }
 

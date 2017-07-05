@@ -30,6 +30,8 @@
 
 const uint8_t CENTRAL_BLE_FIRMWARE_REV[20] = "1.0.0";
 
+static int g_pw_mg_trace_cnt = 0;
+
 /**@breif Macro to unpack 16bit unsigned UUID from octet stream. */
 #define UUID16_EXTRACT(DST,SRC)                                                                  \
         do                                                                                       \
@@ -147,8 +149,8 @@ static api_result_t device_manager_event_handler(const dm_handle_t    * p_handle
             {
                 APPL_LOG("[AP]: [CI 0x%02X]: Requesting GAP Authenticate\r\n", p_handle->connection_id);
 
-							  dm_handle_t handle = (*p_handle);
-							  err_code = dm_security_setup_req(&handle);
+                dm_handle_t handle = (*p_handle);
+                err_code = dm_security_setup_req(&handle);
                 APP_ERROR_CHECK(err_code);
 
             }
@@ -396,17 +398,17 @@ static void on_ble_evt(ble_evt_t * p_ble_evt)
                         APPL_LOG("\r\n[AP]: Found device %s\r\n\r\n", found_device_name);
                         scan_stop();
 
-												err_code = sd_ble_gap_connect(&p_ble_evt->evt.gap_evt.params.adv_report.peer_addr, m_scan_param, m_connection_param);
-												if (err_code == NRF_SUCCESS)
-												{
-														memcpy((uint8_t *)&current_conn_device.peer_addr, (uint8_t *)peer_addr, sizeof(ble_gap_addr_t));
-													  current_conn_device.bonded_flag = false;
-														current_conn_device.device_name = found_device_name;
-												}
-												else
-												{
-														APPL_LOG("[AP]: Connection Request Failed, reason %d\r\n", err_code);
-												}
+                        err_code = sd_ble_gap_connect(&p_ble_evt->evt.gap_evt.params.adv_report.peer_addr, m_scan_param, m_connection_param);
+                        if (err_code == NRF_SUCCESS)
+                        {
+                                memcpy((uint8_t *)&current_conn_device.peer_addr, (uint8_t *)peer_addr, sizeof(ble_gap_addr_t));
+                                current_conn_device.bonded_flag = false;
+                                current_conn_device.device_name = found_device_name;
+                        }
+                        else
+                        {
+                                APPL_LOG("[AP]: Connection Request Failed, reason %d\r\n", err_code);
+                        }
 
                     }
                 }
@@ -674,8 +676,11 @@ bool pstorage_driver_init()
  */
 
 static void power_manage(void)
-{
-    //APPL_LOG("\r\n[AP]: power_manage\r\n\r\n");
+{   
+    if (0x3F == ( (g_pw_mg_trace_cnt++) & 0x3F) ) {
+        APPL_LOG("\r\n[AP]: power_manage\r\n\r\n");
+    }
+    
     uint32_t err_code = sd_app_evt_wait();
     APP_ERROR_CHECK(err_code);
 }
@@ -713,7 +718,6 @@ int main(void)
             APPL_LOG("[AP]: Client init, onboard mode %d\r\n\r\n", onboard_get_mode());
             client_handling_init(onboard_get_mode());
             onboard_set_sec_params(onboard_get_mode());
-
 
             APPL_LOG("[AP]: DM init\r\n\r\n");
             device_manager_init(sec_params);

@@ -29,8 +29,9 @@
 #define ONBOARD_CHAR_MASTER_MODULE_URL        0x2016
 
 /**@brief  Default values for sensors passkeys. These values are used if corresponding block of persistent storage is empty. */
-#define PASSKEY_SIZE 8
-static const uint8_t DEFAULT_SENSOR_PASSKEY[PASSKEY_SIZE]   = {0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x00, 0x00};
+#define PASSKEY_SIZE 6
+// static const uint8_t DEFAULT_SENSOR_PASSKEY[PASSKEY_SIZE+2]   = {0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x00, 0x00};
+static const uint8_t DEFAULT_SENSOR_PASSKEY[PASSKEY_SIZE+2]   = {0x33, 0x34, 0x33, 0x34, 0x33, 0x34, 0x00, 0x00};
 // const uint8_t  DEFAULT_SENSOR_PASSKEY[8]   = {0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31};
 
 /**< List of used characteristics UUID. */
@@ -41,7 +42,7 @@ static const uint8_t DEFAULT_SENSOR_PASSKEY[PASSKEY_SIZE]   = {0x30, 0x30, 0x30,
                                 ONBOARD_CHAR_WIFI_PASS,            \
                                 ONBOARD_CHAR_MASTER_MODULE_ID,     \
                                 ONBOARD_CHAR_MASTER_MODULE_SEC,    \
-	                              ONBOARD_CHAR_MASTER_MODULE_URL     \
+                                ONBOARD_CHAR_MASTER_MODULE_URL     \
                                }
 
 /**< Number of characteristics in Relayr Service. */

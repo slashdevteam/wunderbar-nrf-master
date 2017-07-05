@@ -156,6 +156,8 @@ typedef struct
 
 /** @} */
 
+bool ble_db_is_initialised();
+
 /**
  * @defgroup db_disc_functions Functions
  * @{

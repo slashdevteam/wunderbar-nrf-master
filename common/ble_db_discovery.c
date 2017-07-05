@@ -768,6 +768,10 @@ static void on_desc_disc_rsp(ble_db_discovery_t * const     p_db_discovery,
     }
 }
 
+bool ble_db_is_initialised()
+{
+    return m_initialized;
+}
 
 uint32_t ble_db_discovery_init(ble_db_discovery_init_t * p_db_discovery_init)
 {
