@@ -295,6 +295,20 @@ client_t * find_client_by_dev_name(const uint8_t * device_name, uint8_t len)
     return NULL;
 }
 
+client_t * find_sensor_id_by_dev_name(const uint8_t * device_name)
+{
+    uint8_t cnt;
+
+    for(cnt = 0; cnt < MAX_CLIENTS; cnt++)
+    {
+        if (device_name == m_client[cnt].device_name)
+        {
+            return &m_client[cnt];
+        }
+    }
+    return NULL;
+}
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -660,7 +674,7 @@ static void service_config_dsc_evt_handler(ble_db_discovery_evt_t * p_evt)
 
       case BLE_DB_DISCOVERY_SRV_NOT_FOUND:
       {
-          APPL_LOG("[CL]: Relayr Not Found\r\n");
+          APPL_LOG("[CL]: Relayr Sensor Config Not Found\r\n");
           break;
       }
 
@@ -907,20 +921,19 @@ static void on_evt_read_rsp(ble_evt_t * p_ble_evt, client_t * p_client)
 
                 APPL_LOG("[CL]: Connection handle %d \r\n", p_client->srv_db.conn_handle );
 
-                client_t * client = find_client_by_dev_name(p_client->device_name, 0);
+                spi_create_tx_packet(sensor_id, FIELD_ID_CONFIG_ONBOARD_DONE, 0xFF, NULL, 0);
 
-                APPL_LOG("[CL]: Connection handle %d \r\n", client->srv_db.conn_handle );
+                uint32_t err_code = sd_ble_gap_disconnect(p_client->srv_db.conn_handle, 0x13);
 
-                uint32_t err_code = sd_ble_gap_disconnect(client->srv_db.conn_handle, 0x13);
-                if(err_code == NRF_SUCCESS)
+                if (err_code == NRF_SUCCESS)
                 {
-                    m_client[cnt].state = STATE_DISCONNECTING;
+                    p_client->state = STATE_DISCONNECTING;
                 } else {
                     APPL_LOG("[CL]: Disconnect failed with status %d \r\n", err_code);
 
                     if(err_code > NRF_ERROR_BUSY)
                     {
-                        m_client[cnt].state = STATE_IDLE;
+                        p_client->state = STATE_IDLE;
                     }
                 }
 
@@ -1201,17 +1214,18 @@ void client_handling_init(onboard_mode_t onboard_mode)
     }
 
     err_code = ble_db_discovery_register(&uuid, main_service_dsc_evt_handle);
+    APP_ERROR_CHECK(err_code);
 
     uuid.type = BLE_UUID_TYPE_BLE;
     uuid.uuid = BLE_UUID_BATTERY_SERVICE;
 
     err_code = ble_db_discovery_register(&uuid, service_deviceinf_dsc_evt_handler);
+    APP_ERROR_CHECK(err_code);
 
     uuid.type = BLE_UUID_TYPE_BLE;
     uuid.uuid = BLE_UUID_DEVICE_INFORMATION_SERVICE;
 
     err_code = ble_db_discovery_register(&uuid, service_batterylev_dsc_evt_handler);
-
     APP_ERROR_CHECK(err_code);
 }
 
@@ -1264,6 +1278,7 @@ uint32_t client_handling_destroy(const dm_handle_t * p_handle)
         data_id_t data_id;
 
         data_id = (data_id_t)sensor_get_name_index(p_client->device_name);
+        APPL_LOG("[CL]: Client %d goes to Idle: \r\n", data_id);
         memset((uint8_t *)p_client->id, 0, 8);
         spi_create_tx_packet(data_id, FIELD_ID_SENSOR_STATUS, OPERATION_READ, NULL, 0);
 

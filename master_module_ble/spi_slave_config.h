@@ -25,6 +25,8 @@ void spi_check_tx_ready(void);
 void spi_clear_tx_packet(data_id_t data_id);
 bool spi_search_full_frame(void);
 
+void irq_handler(void);
+
 #endif // SPI_SLAVE_EXAMPLE_H__
 
 /** @} */

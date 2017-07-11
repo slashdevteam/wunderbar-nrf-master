@@ -481,43 +481,53 @@ data_id_t;
 
 typedef enum
 {
-    FIELD_ID_CHAR_SENSOR_ID                  = 0,
-    FIELD_ID_CHAR_SENSOR_BEACON_FREQUENCY    = 1,
-    FIELD_ID_CHAR_SENSOR_FREQUENCY           = 2,
-    FIELD_ID_CHAR_SENSOR_LED_STATE           = 3,
-    FIELD_ID_CHAR_SENSOR_THRESHOLD           = 4,
-    FIELD_ID_CHAR_SENSOR_CONFIG              = 5,
-    FIELD_ID_CHAR_SENSOR_DATA_R              = 6,
-    FIELD_ID_CHAR_SENSOR_DATA_W              = 7,
-    FIELD_ID_CHAR_BATTERY_LEVEL              = 8,
-    FIELD_ID_CHAR_MANUFACTURER_NAME          = 9,
-    FIELD_ID_CHAR_HARDWARE_REVISION          = 10,
-    FIELD_ID_CHAR_FIRMWARE_REVISION          = 11,
-    FIELD_ID_SENSOR_STATUS                   = 12,
+    FIELD_ID_CHAR_SENSOR_ID                  = 0x0,
+    FIELD_ID_CHAR_SENSOR_BEACON_FREQUENCY    = 0x1,
+    FIELD_ID_CHAR_SENSOR_FREQUENCY           = 0x2,
+    FIELD_ID_CHAR_SENSOR_LED_STATE           = 0x3,
+    FIELD_ID_CHAR_SENSOR_THRESHOLD           = 0x4,
+    FIELD_ID_CHAR_SENSOR_CONFIG              = 0x5,
+    FIELD_ID_CHAR_SENSOR_DATA_R              = 0x6,
+    FIELD_ID_CHAR_SENSOR_DATA_W              = 0x7,
+    FIELD_ID_CHAR_BATTERY_LEVEL              = 0x8,
+    FIELD_ID_CHAR_MANUFACTURER_NAME          = 0x9,
+    FIELD_ID_CHAR_HARDWARE_REVISION          = 0xA,
+    FIELD_ID_CHAR_FIRMWARE_REVISION          = 0xB,
+    FIELD_ID_SENSOR_STATUS                   = 0xC,
 }
 field_id_char_index_t;
 
 typedef enum
 {
-    FIELD_ID_CONFIG_HTU_PASS                 = 0,
-    FIELD_ID_CONFIG_GYRO_PASS                = 1,
-    FIELD_ID_CONFIG_LIGHT_PASS               = 2,
-    FIELD_ID_CONFIG_SOUND_PASS               = 3,
-    FIELD_ID_CONFIG_BRIDGE_PASS              = 4,
-    FIELD_ID_CONFIG_IR_PASS                  = 5,
-    FIELD_ID_CONFIG_WIFI_SSID                = 6,
-    FIELD_ID_CONFIG_WIFI_PASS                = 7,
-    FIELD_ID_CONFIG_MASTER_MODULE_ID         = 8,
-    FIELD_ID_CONFIG_MASTER_MODULE_SEC        = 9,
-      FIELD_ID_CONFIG_MASTER_MODULE_URL        = 10,
+    FIELD_ID_CONFIG_HTU_PASS                 = 0x0,
+    FIELD_ID_CONFIG_GYRO_PASS                = 0x1,
+    FIELD_ID_CONFIG_LIGHT_PASS               = 0x2,
+    FIELD_ID_CONFIG_SOUND_PASS               = 0x3,
+    FIELD_ID_CONFIG_BRIDGE_PASS              = 0x4,
+    FIELD_ID_CONFIG_IR_PASS                  = 0x5,
+    FIELD_ID_CONFIG_WIFI_SSID                = 0x6,
+    FIELD_ID_CONFIG_WIFI_PASS                = 0x7,
+    FIELD_ID_CONFIG_MASTER_MODULE_ID         = 0x8,
+    FIELD_ID_CONFIG_MASTER_MODULE_SEC        = 0x9,
+    FIELD_ID_CONFIG_MASTER_MODULE_URL        = 0xA,
 
-    FIELD_ID_CONFIG_START                    = 11,
-    FIELD_ID_CONFIG_COMPLETE                 = 12,
-    FIELD_ID_CONFIG_STOP                     = 13,
-    FIELD_ID_CONFIG_ACK                      = 14,
-    FIELD_ID_CONFIG_ERROR                    = 15,
+    FIELD_ID_CONFIG_START                    = 0xB,
+    FIELD_ID_CONFIG_COMPLETE                 = 0xC,
+    FIELD_ID_CONFIG_STOP                     = 0xD,
+    FIELD_ID_CONFIG_ACK                      = 0xE,
+    FIELD_ID_CONFIG_ERROR                    = 0xF,
 
-    FIELD_ID_RUN                             = 16,
+    FIELD_ID_RUN                             = 0x10,
+    FIELD_ID_CONFIG_ONBOARD_DONE             = 0x11,
+    FIELD_ID_KILL                            = 0x12
+
+    // FIELD_ID_CONFIG_DONE_MASK                = 0x20,
+    // FIELD_ID_CONFIG_HTU_DONE                 = FIELD_ID_CONFIG_DONE_MASK + DATA_ID_DEV_HTU,
+    // FIELD_ID_CONFIG_GYRO_DONE                = FIELD_ID_CONFIG_DONE_MASK + DATA_ID_DEV_GYRO,
+    // FIELD_ID_CONFIG_LIGHT_DONE               = FIELD_ID_CONFIG_DONE_MASK + DATA_ID_DEV_LIGHT,
+    // FIELD_ID_CONFIG_SOUND_DONE               = FIELD_ID_CONFIG_DONE_MASK + DATA_ID_DEV_SOUND,
+    // FIELD_ID_CONFIG_BRIDGE_DONE              = FIELD_ID_CONFIG_DONE_MASK + DATA_ID_DEV_BRIDGE,
+    // FIELD_ID_CONFIG_IR_DONE                  = FIELD_ID_CONFIG_DONE_MASK + DATA_ID_DEV_IR,
 }
 field_id_config_t;
 

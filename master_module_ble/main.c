@@ -202,10 +202,10 @@ static api_result_t device_manager_event_handler(const dm_handle_t    * p_handle
             }
             else
             {
-							  if(onboard_get_mode() != ONBOARD_MODE_CONFIG)
-								{
-										ignore_list_add(&current_conn_device.peer_addr);
-								}
+                if(onboard_get_mode() != ONBOARD_MODE_CONFIG)
+                {
+                    ignore_list_add(&current_conn_device.peer_addr);
+                }
                 sd_ble_gap_disconnect(p_handle->connection_id, 0x13);
             }
 
@@ -226,14 +226,14 @@ static api_result_t device_manager_event_handler(const dm_handle_t    * p_handle
             APPL_LOG("[AP]: [0x%02X] >> DM_LINK_SECURED_IND bonded: %s, result 0x%08X\r\n", p_handle->connection_id, current_conn_device.bonded_flag == true? "true":"false",event_result);
             APPL_LOG("[AP]: [0x%02X] << DM_LINK_SECURED_IND bonded: %s\r\n", p_handle->connection_id, current_conn_device.bonded_flag == true? "true":"false");
 
-					  if(current_conn_device.bonded_flag == true)
-						{
-								err_code = client_handling_create(p_handle, p_event->event_param.p_gap_param->conn_handle, &current_conn_device);
-								if(err_code != NRF_SUCCESS)
-								{
-										sd_ble_gap_disconnect(p_handle->connection_id, 0x13);
-								}
-						}
+                if(current_conn_device.bonded_flag == true)
+                {
+                        err_code = client_handling_create(p_handle, p_event->event_param.p_gap_param->conn_handle, &current_conn_device);
+                        if(err_code != NRF_SUCCESS)
+                        {
+                                sd_ble_gap_disconnect(p_handle->connection_id, 0x13);
+                        }
+                }
 
             break;
         }
@@ -550,6 +550,8 @@ static void device_manager_init(const ble_gap_sec_params_t * sec_params)
     init_param.clear_persistent_data = true;
 
     err_code = dm_init(&init_param);
+    APPL_LOG("[DM]: init, status: %d \r\n", err_code);
+    
     APP_ERROR_CHECK(err_code);
 
     memset(&param.sec_param, 0, sizeof (ble_gap_sec_params_t));
@@ -562,12 +564,13 @@ static void device_manager_init(const ble_gap_sec_params_t * sec_params)
     param.service_type           = DM_PROTOCOL_CNTXT_GATT_CLI_ID;
 
     // Secuirty parameters to be used for security procedures.
-		memcpy((uint8_t*)&param.sec_param, (uint8_t*)sec_params, sizeof(ble_gap_sec_params_t));
+    memcpy((uint8_t*)&param.sec_param, (uint8_t*)sec_params, sizeof(ble_gap_sec_params_t));
 
-		param.sec_param.kdist_periph.enc   = 1;
+    param.sec_param.kdist_periph.enc   = 1;
     param.sec_param.kdist_periph.id    = 1;
 
     err_code = dm_register(&m_dm_app_id,&param);
+    APPL_LOG("[DM]: register, status: %d \r\n", err_code);
     APP_ERROR_CHECK(err_code);
 }
 
@@ -691,6 +694,8 @@ static void power_manage(void)
 /**@brief Function for application main entry.
  */
 
+bool g_spi_irq_fired = false;
+
 int main(void)
 {
     // Initialization of various modules.
@@ -708,16 +713,20 @@ int main(void)
     // main loop
     while(true)
     {
-        if(ONBOARD_MODE_IDLE == onboard_get_mode())
-        {
+        const onboard_mode_t curr_mode = onboard_get_mode();
+
+        if(ONBOARD_MODE_IDLE == curr_mode)
+        {   
+            // if(g_spi_irq_fired)irq_handler();
             spi_check_tx_ready();
+            // if(g_spi_irq_fired)irq_handler();
             power_manage();
         }
         else
         {
-            APPL_LOG("[AP]: Client init, onboard mode %d\r\n\r\n", onboard_get_mode());
-            client_handling_init(onboard_get_mode());
-            onboard_set_sec_params(onboard_get_mode());
+            APPL_LOG("[AP]: Client init, onboard mode %d\r\n\r\n", curr_mode);
+            client_handling_init(curr_mode);
+            onboard_set_sec_params(curr_mode);
 
             APPL_LOG("[AP]: DM init\r\n\r\n");
             device_manager_init(sec_params);
@@ -733,9 +742,10 @@ int main(void)
                 pstorage_driver_run();
                 search_for_client_event();
                 spi_check_tx_ready();
-                if(ONBOARD_MODE_RUN != onboard_get_mode() && ONBOARD_MODE_CONFIG != onboard_get_mode())
+                if (curr_mode != onboard_get_mode())
                 {
-                    APPL_LOG("[AP]: Switch to mode = %d\r\n\r\n", onboard_get_mode());
+                    APPL_LOG("[AP]: Switch modes from %d to %d\n", curr_mode, onboard_get_mode());
+                    scan_stop();
                     break;
                 }
             }

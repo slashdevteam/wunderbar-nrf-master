@@ -19,6 +19,9 @@
 #include "client_handling.h"
 #include "onboard.h"
 
+#include "debug.h"
+#define APPL_LOG                         debug_log                                      /**< Debug logger macro that will be used in this file to do logging of debug information over UART. */
+
 #define DEF_CHARACTER 0xDDu             /**< SPI default character. Character clocked out in case of an ignored transaction. */
 #define ORC_CHARACTER 0xCCu             /**< SPI over-read character. Character clocked out after an over-read of the transmit buffer. */
 
@@ -64,6 +67,8 @@ spi_client_frame_buffer_t *spi_onboard_frame = &spi_clients_frame_buffer[DATA_ID
 spi_client_frame_buffer_t  spi_response_frame;
 
 spi_tx_status_t spi_tx_status = SPI_TX_STATUS_FREE;
+
+extern bool g_spi_irq_fired;
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -116,7 +121,6 @@ void spi_create_tx_packet(data_id_t data_id, uint8_t field_id, uint8_t operation
 
     // "Clear" tx buffer.
     memset((uint8_t *)&frame_buff->frame, 0xFF, sizeof(spi_tx_frame));
-
 
     if(data_id == DATA_ID_DEV_CFG_APP)
     {
@@ -189,17 +193,17 @@ void spi_check_tx_ready(void)
         {
             spi_tx_status = SPI_TX_STATUS_BUSY;
             memcpy((uint8_t *)&spi_tx_frame, (uint8_t *)&spi_onboard_frame->frame, sizeof(spi_frame_t));
+            APPL_LOG("[SS]: SPI irq UP, line %d\n",__LINE__);
             gpio_write(SPIS_RDY_TO_SEND, true);
             return;
         }
 
         // Check if there is some RESPONSE to send.
-        else if(
-                (spi_response_frame.data_status == FRAME_DATA_STATUS_FULL)
-               )
+        else if(spi_response_frame.data_status == FRAME_DATA_STATUS_FULL)
         {
             spi_tx_status = SPI_TX_STATUS_BUSY;
             memcpy((uint8_t *)&spi_tx_frame, (uint8_t *)&spi_response_frame.frame, sizeof(spi_frame_t));
+            APPL_LOG("[SS]: SPI irq UP, line %d\n",__LINE__);
             gpio_write(SPIS_RDY_TO_SEND, true);
             return;
         }
@@ -219,6 +223,7 @@ void spi_check_tx_ready(void)
                 {
                     spi_tx_status = SPI_TX_STATUS_BUSY;
                     memcpy((uint8_t *)&spi_tx_frame, (uint8_t *)&spi_curr_frame->frame, sizeof(spi_frame_t));
+                    APPL_LOG("[SS]: SPI irq UP, line %d\n",__LINE__);
                     gpio_write(SPIS_RDY_TO_SEND, true);
                     break;
                 }
@@ -247,7 +252,7 @@ void SPI1_TWI1_IRQHandler(void)
               spi_onboard_frame->data_status = FRAME_DATA_STATUS_EMPTY;
               onboard_on_send_complete();
           }
-          else if(onboard_get_state() == ONBOARD_STATE_IDLE)
+          else //if(onboard_get_state() == ONBOARD_STATE_IDLE)
           {
               if(spi_response_frame.data_status == FRAME_DATA_STATUS_FULL)
               {
@@ -262,6 +267,7 @@ void SPI1_TWI1_IRQHandler(void)
               }
           }
 
+        //   g_spi_irq_fired = true;
           memset((uint8_t *)&spi_tx_frame, 0xFF, sizeof(spi_tx_frame));
           spi_tx_status = SPI_TX_STATUS_FREE;
 
@@ -269,6 +275,16 @@ void SPI1_TWI1_IRQHandler(void)
 
           gpio_write(SPIS_RDY_TO_SEND, false);
      }
+}
+
+void irq_handler(void) {
+          memset((uint8_t *)&spi_tx_frame, 0xFF, sizeof(spi_tx_frame));
+          spi_tx_status = SPI_TX_STATUS_FREE;
+
+          spi_handler(spi_rx_frame.data_id, spi_rx_frame.field_id, spi_rx_frame.operation, spi_rx_frame.data);
+
+          gpio_write(SPIS_RDY_TO_SEND, false);
+          g_spi_irq_fired = false;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -281,6 +297,12 @@ void SPI1_TWI1_IRQHandler(void)
 
 static bool spi_handler(data_id_t data_id, uint8_t field_id, uint8_t read_write, uint8_t * data)
 {
+    // APPL_LOG("[SS]: Spi Handler, data: 0x\n");
+    // APPL_LOG("%X",data_id);
+    // APPL_LOG("%X",field_id);
+    // APPL_LOG("%X",read_write);
+    // for (uint32_t byte=0;byte<20;byte++)APPL_LOG("%X",data[byte]);
+    // APPL_LOG("\n");
 
     if(
        (data_id <= DATA_ID_DEV_IR) &&
@@ -342,6 +364,12 @@ static bool spi_handler(data_id_t data_id, uint8_t field_id, uint8_t read_write,
             case FIELD_ID_CONFIG_STOP:
             {
                 onboard_set_state(ONBOARD_STATE_IDLE);
+                return true;
+            }
+
+            case FIELD_ID_KILL:
+            {
+                NVIC_SystemReset();
                 return true;
             }
 
@@ -465,7 +493,10 @@ bool spi_slave_app_init(void)
     gpio_set_pin_digital_output(SPIS_RDY_TO_SEND, PIN_DRIVE_S0S1);
 
     spi_tx_status = SPI_TX_STATUS_BUSY;
+    APPL_LOG("[SS]: SPI irq UP, line %d\n",__LINE__);
     gpio_write(SPIS_RDY_TO_SEND, true);
+
+    APPL_LOG("[SS]: Init done\n");
 
     return true;
 }
