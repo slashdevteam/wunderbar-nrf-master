@@ -13,33 +13,33 @@
  *          ENABLE_DEBUG_LOG_SUPPORT is defined in the project.
  */
 #if defined ENABLE_DEBUG_LOG_SUPPORT
-/**
- * @brief Module Initialization.
- *
- * @details Initializes the module.
- */
-void debug_init(void);
+    /**
+    * @brief Module Initialization.
+    *
+    * @details Initializes the module.
+    */
+    void debug_init(void);
 
-/**
- * @brief Log debug messages.
- *
- * @details This API logs messages over UART. Module shall be initialized before using this API.
- *
- * @note Though this is currently a macro, it should be used used and treated as function.
- */
-#define debug_log printf
-void debug_dump(uint8_t * str, uint32_t len);
+    /**
+    * @brief Log debug messages.
+    *
+    * @details This API logs messages over UART. Module shall be initialized before using this API.
+    *
+    * @note Though this is currently a macro, it should be used used and treated as function.
+    */
+    #define debug_log printf
+    void debug_dump(uint8_t * str, uint32_t len);
 
 #elif defined SEGGER_RTT_LOG
-void debug_init(void);
-extern int RTT_printf(const char * sFormat, ...);
-#define debug_log RTT_printf
-#define debug_dump(...)
+    void debug_init(void);
+    extern int RTT_printf(const char * sFormat, ...);
+    #define debug_log RTT_printf
+    #define debug_dump(...)
 
 #else
-#define debug_init(...)
-#define debug_log(...)
-#define debug_dump(...)
+    #define debug_init(...)
+    #define debug_log(...)
+    #define debug_dump(...)
 #endif // ENABLE_DEBUG_LOG_SUPPORT
 
 /** @} */

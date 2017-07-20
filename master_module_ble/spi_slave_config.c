@@ -19,9 +19,6 @@
 #include "client_handling.h"
 #include "onboard.h"
 
-#include "debug.h"
-#define APPL_LOG                         debug_log                                      /**< Debug logger macro that will be used in this file to do logging of debug information over UART. */
-
 #define DEF_CHARACTER 0xDDu             /**< SPI default character. Character clocked out in case of an ignored transaction. */
 #define ORC_CHARACTER 0xCCu             /**< SPI over-read character. Character clocked out after an over-read of the transmit buffer. */
 
@@ -62,14 +59,10 @@ spi_tx_status_t;
 
 spi_client_frame_buffer_t  spi_clients_frame_buffer[MAX_CLIENTS];
 spi_client_frame_buffer_t *spi_curr_frame;
-spi_client_frame_buffer_t *spi_onboard_frame = &spi_clients_frame_buffer[DATA_ID_DEV_CFG_APP];
 
 spi_client_frame_buffer_t  spi_response_frame;
 
 spi_tx_status_t spi_tx_status = SPI_TX_STATUS_FREE;
-
-extern bool g_spi_irq_fired;
-
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -167,7 +160,7 @@ void spi_clear_tx_packet(data_id_t data_id)
 void set_next_frame(void)
 {
     spi_curr_frame++;
-    if(spi_curr_frame > &spi_clients_frame_buffer[NUMBER_OF_SENSORS-1])
+    if(spi_curr_frame > &spi_clients_frame_buffer[MAX_CLIENTS-1])
     {
         spi_curr_frame = &spi_clients_frame_buffer[0];
     }
@@ -180,30 +173,18 @@ void set_next_frame(void)
 void spi_check_tx_ready(void)
 {
     // Check if data sends or receives.
-    if(
-       (spi_tx_status == SPI_TX_STATUS_BUSY) ||
-       (gpio_read (SPIS_CSN_PIN) == 0)
-      )
+    if ( (spi_tx_status == SPI_TX_STATUS_BUSY) ||
+         (gpio_read (SPIS_CSN_PIN) == 0) )
     {
         return;
     }
     else
     {
-        if(spi_onboard_frame->data_status == FRAME_DATA_STATUS_FULL)
-        {
-            spi_tx_status = SPI_TX_STATUS_BUSY;
-            memcpy((uint8_t *)&spi_tx_frame, (uint8_t *)&spi_onboard_frame->frame, sizeof(spi_frame_t));
-            APPL_LOG("[SS]: SPI irq UP, line %d\n",__LINE__);
-            gpio_write(SPIS_RDY_TO_SEND, true);
-            return;
-        }
-
         // Check if there is some RESPONSE to send.
-        else if(spi_response_frame.data_status == FRAME_DATA_STATUS_FULL)
+        if(spi_response_frame.data_status == FRAME_DATA_STATUS_FULL)
         {
             spi_tx_status = SPI_TX_STATUS_BUSY;
             memcpy((uint8_t *)&spi_tx_frame, (uint8_t *)&spi_response_frame.frame, sizeof(spi_frame_t));
-            APPL_LOG("[SS]: SPI irq UP, line %d\n",__LINE__);
             gpio_write(SPIS_RDY_TO_SEND, true);
             return;
         }
@@ -212,18 +193,15 @@ void spi_check_tx_ready(void)
         else
         {
             uint8_t cnt;
-            for(cnt = 0; cnt < NUMBER_OF_SENSORS; cnt++)
+            for(cnt = 0; cnt < MAX_CLIENTS; cnt++)
             {
                 set_next_frame();
 
-                if(
-                    ((spi_curr_frame->data_status == FRAME_DATA_STATUS_FULL) || (spi_curr_frame->data_status == FRAME_DATA_STATUS_LOCK))&&
-                    (gpio_read (SPIS_CSN_PIN) != 0)
-                  )
+                if( ( (spi_curr_frame->data_status == FRAME_DATA_STATUS_FULL) || 
+                      (spi_curr_frame->data_status == FRAME_DATA_STATUS_LOCK) ) && (gpio_read (SPIS_CSN_PIN) != 0) )
                 {
                     spi_tx_status = SPI_TX_STATUS_BUSY;
                     memcpy((uint8_t *)&spi_tx_frame, (uint8_t *)&spi_curr_frame->frame, sizeof(spi_frame_t));
-                    APPL_LOG("[SS]: SPI irq UP, line %d\n",__LINE__);
                     gpio_write(SPIS_RDY_TO_SEND, true);
                     break;
                 }
@@ -243,48 +221,33 @@ void spi_check_tx_ready(void)
  */
 void SPI1_TWI1_IRQHandler(void)
 {
-     if (NRF_SPIS1->EVENTS_END != 0)
-     {
-          NRF_SPIS1->EVENTS_END = 0;
+    if (NRF_SPIS1->EVENTS_END != 0)
+    {
+        NRF_SPIS1->EVENTS_END = 0;
 
-          if(spi_onboard_frame->data_status == FRAME_DATA_STATUS_FULL)
-          {
-              spi_onboard_frame->data_status = FRAME_DATA_STATUS_EMPTY;
-              onboard_on_send_complete();
-          }
-          else //if(onboard_get_state() == ONBOARD_STATE_IDLE)
-          {
-              if(spi_response_frame.data_status == FRAME_DATA_STATUS_FULL)
-              {
-                  spi_response_frame.data_status = FRAME_DATA_STATUS_EMPTY;
-              }
-              else if(
-                       (spi_curr_frame->data_status == FRAME_DATA_STATUS_FULL) ||
-                       (spi_curr_frame->data_status == FRAME_DATA_STATUS_LOCK)
-                     )
-              {
-                  spi_curr_frame->data_status = FRAME_DATA_STATUS_EMPTY;
-              }
-          }
+        if (spi_response_frame.data_status == FRAME_DATA_STATUS_FULL)
+        {
+            spi_response_frame.data_status = FRAME_DATA_STATUS_EMPTY;
+        }
+        else if (spi_curr_frame->data_status == FRAME_DATA_STATUS_FULL ||
+                 spi_curr_frame->data_status == FRAME_DATA_STATUS_LOCK)
+        {
+            spi_curr_frame->data_status = FRAME_DATA_STATUS_EMPTY;
+        }
 
-        //   g_spi_irq_fired = true;
-          memset((uint8_t *)&spi_tx_frame, 0xFF, sizeof(spi_tx_frame));
-          spi_tx_status = SPI_TX_STATUS_FREE;
+        memset((uint8_t *)&spi_tx_frame, 0xFF, sizeof(spi_tx_frame));
+        spi_tx_status = SPI_TX_STATUS_FREE;
 
-          spi_handler(spi_rx_frame.data_id, spi_rx_frame.field_id, spi_rx_frame.operation, spi_rx_frame.data);
+        const bool opOk = spi_handler(spi_rx_frame.data_id, spi_rx_frame.field_id, spi_rx_frame.operation, spi_rx_frame.data);
 
-          gpio_write(SPIS_RDY_TO_SEND, false);
-     }
-}
+        if (DATA_ID_ERROR != spi_rx_frame.data_id  && 
+            false         == opOk) 
+        {
+            spi_create_tx_packet(DATA_ID_DEV_CFG_APP, INVALID, NOT_USED, NULL, 0);
+        }
 
-void irq_handler(void) {
-          memset((uint8_t *)&spi_tx_frame, 0xFF, sizeof(spi_tx_frame));
-          spi_tx_status = SPI_TX_STATUS_FREE;
-
-          spi_handler(spi_rx_frame.data_id, spi_rx_frame.field_id, spi_rx_frame.operation, spi_rx_frame.data);
-
-          gpio_write(SPIS_RDY_TO_SEND, false);
-          g_spi_irq_fired = false;
+        gpio_write(SPIS_RDY_TO_SEND, false);
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -297,16 +260,9 @@ void irq_handler(void) {
 
 static bool spi_handler(data_id_t data_id, uint8_t field_id, uint8_t read_write, uint8_t * data)
 {
-    // APPL_LOG("[SS]: Spi Handler, data: 0x\n");
-    // APPL_LOG("%X",data_id);
-    // APPL_LOG("%X",field_id);
-    // APPL_LOG("%X",read_write);
-    // for (uint32_t byte=0;byte<20;byte++)APPL_LOG("%X",data[byte]);
-    // APPL_LOG("\n");
-
     if(
        (data_id <= DATA_ID_DEV_IR) &&
-       (field_id <= FIELD_ID_SENSOR_STATUS) &&
+       (field_id < FIELD_ID_SENSOR_STATUS) &&
        (onboard_get_state() == ONBOARD_STATE_IDLE)
       )
     {
@@ -367,12 +323,20 @@ static bool spi_handler(data_id_t data_id, uint8_t field_id, uint8_t read_write,
                 return true;
             }
 
+            case FIELD_ID_CONFIG_STORE_PASSKEYS:
+            {
+                onboard_set_store_passkeys();
+                spi_create_tx_packet(DATA_ID_DEV_CFG_APP, FIELD_ID_CONFIG_ACK, NOT_USED, NULL, 0);
+                return true;
+            }
+
             case FIELD_ID_KILL:
             {
                 NVIC_SystemReset();
                 return true;
             }
 
+            // save passkey locally; will be stored in NVRAM during onboarding
             case FIELD_ID_CONFIG_HTU_PASS:
             case FIELD_ID_CONFIG_GYRO_PASS:
             case FIELD_ID_CONFIG_LIGHT_PASS:
@@ -380,7 +344,9 @@ static bool spi_handler(data_id_t data_id, uint8_t field_id, uint8_t read_write,
             case FIELD_ID_CONFIG_BRIDGE_PASS:
             case FIELD_ID_CONFIG_IR_PASS:
             {
-                return onboard_store_passkey_from_wifi(field_id, data);
+                onboard_save_passkey_from_wifi(field_id, data);
+                spi_create_tx_packet(DATA_ID_DEV_CFG_APP, FIELD_ID_CONFIG_ACK, NOT_USED, NULL, 0);
+                return true;
             }
 
         }
@@ -493,10 +459,8 @@ bool spi_slave_app_init(void)
     gpio_set_pin_digital_output(SPIS_RDY_TO_SEND, PIN_DRIVE_S0S1);
 
     spi_tx_status = SPI_TX_STATUS_BUSY;
-    APPL_LOG("[SS]: SPI irq UP, line %d\n",__LINE__);
-    gpio_write(SPIS_RDY_TO_SEND, true);
 
-    APPL_LOG("[SS]: Init done\n");
+    gpio_write(SPIS_RDY_TO_SEND, true);
 
     return true;
 }

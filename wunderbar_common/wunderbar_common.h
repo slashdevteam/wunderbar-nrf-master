@@ -58,9 +58,6 @@
 /**< Number of characteristics in Relayr Service. */
 #define NUMBER_OF_RELAYR_CHARACTERISTICS                  8
 
-/**< Number of sensors. */
-#define NUMBER_OF_SENSORS                                 6
-
 /**@brief Characteristic UUIDs of BLE SIG Service. */
 #define CHARACTERISTIC_BATTERY_LEVEL_UUID                 BLE_UUID_BATTERY_LEVEL_CHAR
 #define CHARACTERISTIC_MANUFACTURER_NAME_UUID             BLE_UUID_MANUFACTURER_NAME_STRING_CHAR
@@ -88,21 +85,13 @@
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**@brief Sensors Device Names. */
-#define DEVICE_NAME_HTU             "WunderbarH"
+#define DEVICE_NAME_HTU             "WunderbarHTU"
 #define DEVICE_NAME_GYRO            "WunderbarGYRO"
 #define DEVICE_NAME_LIGHT           "WunderbarLIGHT"
-#define DEVICE_NAME_MIC             "WunderbarM"
-#define DEVICE_NAME_BRIDGE          "WunderbarR"
-#define DEVICE_NAME_IR              "WunderbarI"
+#define DEVICE_NAME_MIC             "WunderbarMIC"
+#define DEVICE_NAME_BRIDGE          "WunderbarBRIDG"
+#define DEVICE_NAME_IR              "WunderbarIR"
 #define DEVICE_NAME_CFG_APP         "WunderbarApp"
-
-// #define DEVICE_NAME_HTU             "WunderbarHTU"
-// #define DEVICE_NAME_GYRO            "WunderbarGYRO"
-// #define DEVICE_NAME_LIGHT           "WunderbarLIGHT"
-// #define DEVICE_NAME_MIC             "WunderbarMIC"
-// #define DEVICE_NAME_BRIDGE          "WunderbarRATH"
-// #define DEVICE_NAME_IR              "WunderbarIR"
-// #define DEVICE_NAME_CFG_APP         "WunderbarApp"
 
 /**@brief Master Bluetooth Device Name. */
 #define DEVICE_NAME_MASTER_BLE      "WunderbarBar"
@@ -493,41 +482,31 @@ typedef enum
     FIELD_ID_CHAR_MANUFACTURER_NAME          = 0x9,
     FIELD_ID_CHAR_HARDWARE_REVISION          = 0xA,
     FIELD_ID_CHAR_FIRMWARE_REVISION          = 0xB,
-    FIELD_ID_SENSOR_STATUS                   = 0xC,
+    FIELD_ID_SENSOR_STATUS                   = 0xC
 }
 field_id_char_index_t;
 
 typedef enum
 {
-    FIELD_ID_CONFIG_HTU_PASS                 = 0x0,
-    FIELD_ID_CONFIG_GYRO_PASS                = 0x1,
-    FIELD_ID_CONFIG_LIGHT_PASS               = 0x2,
-    FIELD_ID_CONFIG_SOUND_PASS               = 0x3,
-    FIELD_ID_CONFIG_BRIDGE_PASS              = 0x4,
-    FIELD_ID_CONFIG_IR_PASS                  = 0x5,
-    FIELD_ID_CONFIG_WIFI_SSID                = 0x6,
-    FIELD_ID_CONFIG_WIFI_PASS                = 0x7,
-    FIELD_ID_CONFIG_MASTER_MODULE_ID         = 0x8,
-    FIELD_ID_CONFIG_MASTER_MODULE_SEC        = 0x9,
-    FIELD_ID_CONFIG_MASTER_MODULE_URL        = 0xA,
+    FIELD_ID_CONFIG_HTU_PASS                 = DATA_ID_DEV_HTU,
+    FIELD_ID_CONFIG_GYRO_PASS                = DATA_ID_DEV_GYRO,
+    FIELD_ID_CONFIG_LIGHT_PASS               = DATA_ID_DEV_LIGHT,
+    FIELD_ID_CONFIG_SOUND_PASS               = DATA_ID_DEV_SOUND,
+    FIELD_ID_CONFIG_BRIDGE_PASS              = DATA_ID_DEV_BRIDGE,
+    FIELD_ID_CONFIG_IR_PASS                  = DATA_ID_DEV_IR,
 
-    FIELD_ID_CONFIG_START                    = 0xB,
-    FIELD_ID_CONFIG_COMPLETE                 = 0xC,
-    FIELD_ID_CONFIG_STOP                     = 0xD,
-    FIELD_ID_CONFIG_ACK                      = 0xE,
-    FIELD_ID_CONFIG_ERROR                    = 0xF,
+    FIELD_ID_CONFIG_START                    = 0x10,
+    FIELD_ID_CONFIG_COMPLETE                 = 0x11,
+    FIELD_ID_CONFIG_STOP                     = 0x12,
+    FIELD_ID_CONFIG_ACK                      = 0x13,
+    FIELD_ID_CONFIG_ERROR                    = 0x14,
+    FIELD_ID_CONFIG_STORE_PASSKEYS           = 0x15,
 
-    FIELD_ID_RUN                             = 0x10,
-    FIELD_ID_CONFIG_ONBOARD_DONE             = 0x11,
-    FIELD_ID_KILL                            = 0x12
+    FIELD_ID_RUN                             = 0x20,
+    FIELD_ID_ONBOARD_DONE                    = 0x21,
+    FIELD_ID_KILL                            = 0x22,
 
-    // FIELD_ID_CONFIG_DONE_MASK                = 0x20,
-    // FIELD_ID_CONFIG_HTU_DONE                 = FIELD_ID_CONFIG_DONE_MASK + DATA_ID_DEV_HTU,
-    // FIELD_ID_CONFIG_GYRO_DONE                = FIELD_ID_CONFIG_DONE_MASK + DATA_ID_DEV_GYRO,
-    // FIELD_ID_CONFIG_LIGHT_DONE               = FIELD_ID_CONFIG_DONE_MASK + DATA_ID_DEV_LIGHT,
-    // FIELD_ID_CONFIG_SOUND_DONE               = FIELD_ID_CONFIG_DONE_MASK + DATA_ID_DEV_SOUND,
-    // FIELD_ID_CONFIG_BRIDGE_DONE              = FIELD_ID_CONFIG_DONE_MASK + DATA_ID_DEV_BRIDGE,
-    // FIELD_ID_CONFIG_IR_DONE                  = FIELD_ID_CONFIG_DONE_MASK + DATA_ID_DEV_IR,
+    INVALID                                  = 0xFF
 }
 field_id_config_t;
 
@@ -535,8 +514,15 @@ field_id_config_t;
 
 typedef enum
 {
-    OPERATION_WRITE  = 0,
-    OPERATION_READ   = 1
+    // used for data transfers to/from sensors
+    OPERATION_WRITE = 0x0,
+    OPERATION_READ  = 0x1,
+
+    // It is used in this manner for FIELD_ID_SENSOR_STATUS, so let's have it explicitly
+    CONNECTION_OPENED = 0x0,
+    CONNECTION_CLOSED = 0x1,
+    
+    NOT_USED = 0xFF
 }
 operation_t;
 

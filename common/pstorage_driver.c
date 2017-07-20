@@ -231,7 +231,7 @@ bool pstorage_driver_request_store(uint8_t * source_data)
         return false;
     }
     
-		// Get pstorage_driver block, based on address of data.
+    // Get pstorage_driver block, based on address of data.
     block = pstorage_driver_get_block(source_data);
     if(block == NULL) 
     {
@@ -268,33 +268,33 @@ void pstorage_driver_run(void)
         // Idle state
         case STORE_STATE_IDLE: 
         {
-					  // Check whether the storing process is running.
+            // Check whether the storing process is running.
             if(!pstorage_driver_store.run_flag) 
             {
                 return;
             }
-						
+            
             pstorage_driver_set_next_state();                                  // Go to next state.
         }
         
-				// Clear PSTORAGE_DRIVER_MAGIC_NUM from corresponding block.
+        // Clear PSTORAGE_DRIVER_MAGIC_NUM from corresponding block.
         case STORE_STATE_CLEAR_MAGIC: 
         {
             uint16_t tmp_size;
-					
-					  // Calculate offset of PSTORAGE_DRIVER_MAGIC_NUM in block.
+            
+            // Calculate offset of PSTORAGE_DRIVER_MAGIC_NUM in block.
             tmp_size = pstorage_driver_store.block->size;
             if((tmp_size % 4) != 0) 
             {
                 tmp_size += 4 - (tmp_size % 4);
             }
-						
-						// Start storing "clear" value.
+            
+            // Start storing "clear" value.
             tmp_magic_number = 0xFFFFFFFF;
             err_code = pstorage_update(&pstorage_driver_store.block->block_id, (uint8_t *)&tmp_magic_number, 4, tmp_size);
             if(err_code != NRF_SUCCESS) 
             {
-							  // Stop storing process.
+                // Stop storing process.
                 pstorage_driver_update_store_status();
                 pstorage_driver_set_idle_state();
                 return;
@@ -303,23 +303,23 @@ void pstorage_driver_run(void)
             break;
         }
           
-				// Store data.
+        // Store data.
         case STORE_STATE_STORE_DATA: 
         {
             uint16_t tmp_size;
-					
-					  // Size of storing data must be divisible by 4.
+            
+            // Size of storing data must be divisible by 4.
             tmp_size = pstorage_driver_store.block->size;
             if((tmp_size % 4) != 0) 
             {
                 tmp_size += 4 - (tmp_size % 4);
             } 
-						
-						// Start storing data.
+            
+            // Start storing data.
             err_code = pstorage_update(&pstorage_driver_store.block->block_id, pstorage_driver_store.block->data, tmp_size, 0);
             if(err_code != NRF_SUCCESS) 
             {
-							  // Stop storing process.
+                // Stop storing process.
                 pstorage_driver_update_store_status();
                 pstorage_driver_set_idle_state();
                 return;
@@ -328,30 +328,30 @@ void pstorage_driver_run(void)
             break;
         }
         
-				// Store PSTORAGE_DRIVER_MAGIC_NUM at the end of data.
+        // Store PSTORAGE_DRIVER_MAGIC_NUM at the end of data.
         case STORE_STATE_ADD_MAGIC: 
         {
             uint16_t tmp_size;
-					  
-					  // Calculate offset of PSTORAGE_DRIVER_MAGIC_NUM in block.
+            
+            // Calculate offset of PSTORAGE_DRIVER_MAGIC_NUM in block.
             tmp_size = pstorage_driver_store.block->size;
             if((tmp_size % 4) != 0) 
             {
                 tmp_size += 4 - (tmp_size % 4);
             }
             tmp_magic_number = PSTORAGE_DRIVER_MAGIC_NUM;
-						// Start storing PSTORAGE_DRIVER_MAGIC_NUM value.
+            // Start storing PSTORAGE_DRIVER_MAGIC_NUM value.
             err_code = pstorage_update(&pstorage_driver_store.block->block_id, (uint8_t *)&tmp_magic_number, 4, tmp_size);
             if(err_code != NRF_SUCCESS) 
             {
-							  // Stop storing process.
+                // Stop storing process.
                 pstorage_driver_update_store_status();
                 pstorage_driver_set_idle_state();
                 return;
             }
             pstorage_driver_store.wait_flag = true;
             break;
-        }     
+        }
     }
 }
 
@@ -378,10 +378,10 @@ bool pstorage_driver_get_run_status(void)
 
 static void pstorage_driver_set_next_state(void) 
 {
-	  // Calculate value of next state.
+    // Calculate value of next state.
     pstorage_driver_store.state = (pstorage_driver_store_state_t)((uint8_t)(pstorage_driver_store.state + 1) % PSTORAGE_NUMBER_OF_STORE_STATES);
   
-	  // If changed state is STORE_STATE_IDLE update value of run_flag field.
+    // If changed state is STORE_STATE_IDLE update value of run_flag field.
     if(pstorage_driver_store.state == STORE_STATE_IDLE) 
     {
         pstorage_driver_store.run_flag = false;
@@ -426,8 +426,8 @@ static void pstorage_driver_update_store_status(void)
 static pstorage_driver_block_t * pstorage_driver_get_block(uint8_t * data) 
 {
     uint16_t cnt;
-	
-	  // Search if there is a block with data field matching the input parameter.
+
+    // Search if there is a block with data field matching the input parameter.
     for(cnt = 0; cnt < PSTORAGE_DRIVER_NUM_OF_BLOCKS; cnt++) 
     {
         if(pstorage_driver.block[cnt].data == data) 
@@ -455,15 +455,15 @@ static pstorage_driver_block_t * pstorage_driver_get_block(uint8_t * data)
 static void pstorage_driver_cb_handler(pstorage_handle_t * handle, uint8_t op_code, uint32_t result, uint8_t * p_data, uint32_t data_len)
 {
   switch(op_code) {
-		
-		// Update an already touched storage block.
+        
+        // Update an already touched storage block.
         case PSTORAGE_UPDATE_OP_CODE:
         {
             if (result == NRF_SUCCESS)
             {
-							   // Go to next state.
+                // Go to next state.
                 pstorage_driver_set_next_state();
-							  // Check if there is reached idle state of storing process, and cleared run_flag.
+                // Check if there is reached idle state of storing process, and cleared run_flag.
                 if(pstorage_driver_get_run_status() == false)
                 {
                     onboard_on_store_complete(); 
@@ -471,7 +471,7 @@ static void pstorage_driver_cb_handler(pstorage_handle_t * handle, uint8_t op_co
             }
             else 
             {
-							  // Stop storing process.
+                // Stop storing process.
                 pstorage_driver_update_store_status();
                 pstorage_driver_set_idle_state();
             }

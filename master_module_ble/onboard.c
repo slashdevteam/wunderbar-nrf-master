@@ -94,18 +94,14 @@ const ble_gap_scan_params_t * m_scan_param;
 extern const uint8_t    SENSORS_DEVICE_NAME[MAX_CLIENTS][BLE_DEVNAME_MAX_LEN + 1];
 extern passkey_t        sensors_passkey[MAX_CLIENTS];
 
-const  uint16_t         ONBOARD_CHAR_UUIDS[NUMBER_OF_ONBOARD_CHARACTERISTICS] = LIST_OF_ONBOARD_CHARS;
-
 onboard_mode_t  onboard_mode  = ONBOARD_MODE_IDLE;
 onboard_state_t onboard_state = ONBOARD_STATE_IDLE;
-static onboard_characteristics_t current_char;
+
+bool onboard_store_passkeys = false;
 
 static const uint16_t service_uuid_list_config_mode[3] = {SHORT_SERVICE_CONFIG_UUID, BLE_UUID_DEVICE_INFORMATION_SERVICE, BLE_UUID_BATTERY_SERVICE};
 static const uint16_t service_uuid_list_run_mode[3]    = {SHORT_SERVICE_RELAYR_UUID, BLE_UUID_DEVICE_INFORMATION_SERVICE, BLE_UUID_BATTERY_SERVICE};
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /** @brief  Set onboarding mode.
  *
  *  @param  new_mode  Mode to be set.
@@ -119,9 +115,6 @@ void onboard_set_mode(onboard_mode_t new_mode)
     onboard_mode = new_mode;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /** @brief  Get onboarding mode.
  *
  *  @return  Current onboarding mode.
@@ -132,9 +125,6 @@ onboard_mode_t onboard_get_mode(void)
     return onboard_mode;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /** @brief  Set onboarding state.
  *
  *  @param  new_mode  State to be set.
@@ -161,9 +151,6 @@ void onboard_set_sec_params(onboard_mode_t onboard_mode)
     }
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /** @brief  Get onboarding state.
  *
  *  @return  Current onboarding state.
@@ -175,60 +162,19 @@ onboard_state_t onboard_get_state(void)
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/** @brief  Function which is called on successful send onboarding data to kinetis mcu.
- *
- *  @return Void.
- */
-
-void onboard_on_send_complete(void)
-{
-    switch(onboard_state)
-    {
-        case ONBOARD_STATE_SENDING_WIFI_SSID:
-        case ONBOARD_STATE_SENDING_WIFI_PASS:
-        case ONBOARD_STATE_SENDING_MASTER_MODULE_ID:
-				case ONBOARD_STATE_SENDING_MASTER_MODULE_SEC:
-        {
-            client_t * p_client;
-            p_client = find_client_by_dev_name(SENSORS_DEVICE_NAME[DATA_ID_DEV_CFG_APP], 0);
-            if(p_client != NULL)
-            {
-                read_characteristic_value(p_client, ONBOARD_CHAR_UUIDS[current_char++]);
-            }
-
-            onboard_state++;
-            break;
-        }
-
-        case ONBOARD_STATE_SENDING_MASTER_MODULE_URL:
-        {
-            onboard_state++;
-            break;
-        }
-
-        default:{}
-    }
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /** @brief  Function which is called on successful store data in persistent memory.
  *
  *  @return  Void.
  */
 void onboard_on_store_complete(void)
 {
-    client_t * p_client;
 
     switch(onboard_state)
     {
 
         case ONBOARD_STATE_STORING_HTU_PASS:
         {
-            if(onboard_store_passkey_from_ble(DATA_ID_DEV_GYRO, NULL) == false)
+            if(onboard_store_passkey_from_wifi(DATA_ID_DEV_GYRO) == false)
             {
                 onboard_set_state(ONBOARD_STATE_ERROR);
             }
@@ -237,7 +183,16 @@ void onboard_on_store_complete(void)
 
         case ONBOARD_STATE_STORING_GYRO_PASS:
         {
-            if(onboard_store_passkey_from_ble(DATA_ID_DEV_LIGHT, NULL) == false)
+            if(onboard_store_passkey_from_wifi(DATA_ID_DEV_LIGHT) == false)
+            {
+                onboard_set_state(ONBOARD_STATE_ERROR);
+            }
+            break;
+        }
+
+        case ONBOARD_STATE_STORING_LIGHT_PASS:
+        {
+            if(onboard_store_passkey_from_wifi(DATA_ID_DEV_SOUND) == false)
             {
                 onboard_set_state(ONBOARD_STATE_ERROR);
             }
@@ -246,30 +201,25 @@ void onboard_on_store_complete(void)
 
         case ONBOARD_STATE_STORING_SOUND_PASS:
         {
-            if(onboard_store_passkey_from_ble(DATA_ID_DEV_BRIDGE, NULL) == false)
+            if(onboard_store_passkey_from_wifi(DATA_ID_DEV_BRIDGE) == false)
             {
                 onboard_set_state(ONBOARD_STATE_ERROR);
             }
             break;
         }
 
-				case ONBOARD_STATE_STORING_BRIDGE_PASS:
+        case ONBOARD_STATE_STORING_BRIDGE_PASS:
         {
-            if(onboard_store_passkey_from_ble(DATA_ID_DEV_IR, NULL) == false)
+            if(onboard_store_passkey_from_wifi(DATA_ID_DEV_IR) == false)
             {
                 onboard_set_state(ONBOARD_STATE_ERROR);
             }
             break;
         }
 
-        case ONBOARD_STATE_STORING_LIGHT_PASS:
+
         case ONBOARD_STATE_STORING_IR_PASS:
         {
-            p_client = find_client_by_dev_name(SENSORS_DEVICE_NAME[DATA_ID_DEV_CFG_APP], 0);
-            if(p_client != NULL)
-            {
-                read_characteristic_value(p_client, ONBOARD_CHAR_UUIDS[current_char++]);
-            }
             onboard_state++;
             break;
         }
@@ -281,178 +231,27 @@ void onboard_on_store_complete(void)
     }
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/** @brief  Function send request to storing passkey received from kinetis mcu.
- *
- *  @return  false in case that error is occurred, otherwise true.
- */
-bool onboard_store_passkey_from_wifi(uint8_t passkey_index, uint8_t * data)
-{
-    memcpy((uint8_t*)&sensors_passkey[passkey_index], data, PASSKEY_SIZE);
-    return pstorage_driver_request_store((uint8_t*)(&sensors_passkey[passkey_index]));
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/** @brief  Function send request to storing passkey received through bluetooth interface.
- *
- *  @return  false in case that error is occurred, otherwise true.
- */
-
-bool onboard_store_passkey_from_ble(uint8_t passkey_index, uint8_t * data)
-{
-    static uint8_t * current_pass;
-	  static uint8_t   valid_flag;
-
-    onboard_state++;
-
-    if(data != NULL)
-    {
-        current_pass = data;
-			  valid_flag = data[3*ONBOARD_SENSOR_PASS_LEN];
-
-        if(valid_flag & 0x1)
-        {
-            memcpy((uint8_t*)&sensors_passkey[passkey_index], current_pass, 6);
-            return pstorage_driver_request_store((uint8_t*)(&sensors_passkey[passkey_index]));
-        }
-        else
-        {
-            onboard_on_store_complete();
-            return true;
-        }
-    }
-    else
-    {
-        current_pass += ONBOARD_SENSOR_PASS_LEN;
-			  valid_flag >>= 1;
-
-        if(valid_flag & 0x1)
-        {
-            memcpy((uint8_t*)&sensors_passkey[passkey_index], current_pass, 6);
-            return pstorage_driver_request_store((uint8_t*)(&sensors_passkey[passkey_index]));
-        }
-        else
-        {
-            onboard_on_store_complete();
-            return true;
-        }
-    }
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/** @brief  Function parse onboarding data which is received through bluetooth interface.
+/** @brief  Function saves locally passkey received from kinetis mcu.
  *
  *  @return  Void.
  */
-
-void onboard_parse_data(uint8_t field_id, uint8_t * data, uint8_t len)
+void onboard_save_passkey_from_wifi(uint8_t passkey_index, uint8_t * data)
 {
-    switch(onboard_state)
-    {
-        case ONBOARD_STATE_WAIT_HTU_GYRO_LIGHT_PASS:
-        {
-            if(onboard_store_passkey_from_ble(DATA_ID_DEV_HTU, data) == false)
-            {
-                onboard_set_state(ONBOARD_STATE_ERROR);
-            }
-            break;
-        }
-
-        case ONBOARD_STATE_WAIT_SOUND_BRIDGE_IR_PASS:
-        {
-            if(onboard_store_passkey_from_ble(DATA_ID_DEV_SOUND, data) == false)
-            {
-                onboard_set_state(ONBOARD_STATE_ERROR);
-            }
-            break;
-        }
-
-        case ONBOARD_STATE_WAIT_WIFI_SSID:
-        {
-            onboard_state++;
-            if(data[ONBOARD_WIFI_SSID_LEN] == true)
-            {
-                spi_create_tx_packet(DATA_ID_DEV_CFG_APP, FIELD_ID_CONFIG_WIFI_SSID, OPERATION_WRITE, data, len);
-            }
-            else
-            {
-                onboard_on_send_complete();
-            }
-            break;
-        }
-
-        case ONBOARD_STATE_WAIT_WIFI_PASS:
-        {
-            onboard_state++;
-            if(data[ONBOARD_WIFI_PASS_LEN] == true)
-            {
-                spi_create_tx_packet(DATA_ID_DEV_CFG_APP, FIELD_ID_CONFIG_WIFI_PASS, OPERATION_WRITE, data, len);
-            }
-            else
-            {
-                onboard_on_send_complete();
-            }
-            break;
-        }
-
-        case ONBOARD_STATE_WAIT_MASTER_MODULE_ID:
-        {
-            onboard_state++;
-            if(data[ONBOARD_MASTER_ID_LEN] == true)
-            {
-                spi_create_tx_packet(DATA_ID_DEV_CFG_APP, FIELD_ID_CONFIG_MASTER_MODULE_ID, OPERATION_WRITE, data, len);
-            }
-            else
-            {
-                onboard_on_send_complete();
-            }
-            break;
-        }
-
-        case ONBOARD_STATE_WAIT_MASTER_MODULE_SEC:
-        {
-            onboard_state++;
-            if(data[ONBOARD_MASTER_SEC_LEN] == true)
-            {
-                spi_create_tx_packet(DATA_ID_DEV_CFG_APP, FIELD_ID_CONFIG_MASTER_MODULE_SEC, OPERATION_WRITE, data, ONBOARD_MASTER_SEC_LEN);
-            }
-            else
-            {
-                onboard_on_send_complete();
-            }
-            break;
-        }
-
-				case ONBOARD_STATE_WAIT_MASTER_MODULE_URL:
-        {
-            onboard_state++;
-            if(data[ONBOARD_MASTER_URL_LEN] == true)
-            {
-                spi_create_tx_packet(DATA_ID_DEV_CFG_APP, FIELD_ID_CONFIG_MASTER_MODULE_URL, OPERATION_WRITE, data, ONBOARD_MASTER_URL_LEN);
-            }
-            else
-            {
-                onboard_on_send_complete();
-            }
-            break;
-        }
-
-        default:
-        {
-            return;
-        }
-    }
+    memcpy((uint8_t*)&sensors_passkey[passkey_index], data, PASSKEY_SIZE);
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/** @brief  Function sends request to copy passkey from local memory to NVRAM.
+ *
+ *  @return  false in case that error is occurred, otherwise true.
+ */
+bool onboard_store_passkey_from_wifi(uint8_t passkey_index)
+{
+    onboard_state++;
+
+    return pstorage_driver_request_store((uint8_t*)(&sensors_passkey[passkey_index]));
+}
+
 /** @brief  Function handles various states of onboarding process.
  *
  *  @return  Void.
@@ -460,52 +259,34 @@ void onboard_parse_data(uint8_t field_id, uint8_t * data, uint8_t len)
 
 void onboard_state_handle(void)
 {
-    client_t * p_client;
-
     if(onboard_state == ONBOARD_STATE_IDLE)
     {
         return;
     }
 
-    p_client = find_client_by_dev_name(SENSORS_DEVICE_NAME[DATA_ID_DEV_CFG_APP], 0);
-    if(
-        (p_client == NULL) ||
-        ((p_client->state != STATE_RUNNING) && (p_client->state != STATE_WAIT_READ_RSP))
-      )
-    {
-        // Onboarding is started. Waiting device.
-        if(onboard_get_state() == ONBOARD_STATE_START)
-        {
-            return;
-        }
-        // Config device is disconnected during onboarding process.
-        else
-        {
-            onboard_set_state(ONBOARD_STATE_ERROR);
-        }
-
-    }
-
     switch(onboard_state)
     {
-        case ONBOARD_STATE_IDLE:
-        {
-            break;
-        }
-
         case ONBOARD_STATE_START:
         {
-            APPL_LOG("[OB]: Start config.\r\n");
-            current_char = ONBOARD_CHAR_INDEX_HTU_GYRO_LIGHT_PASS;
-            read_characteristic_value(p_client, ONBOARD_CHAR_UUIDS[current_char++]);
-            onboard_set_state(ONBOARD_STATE_WAIT_HTU_GYRO_LIGHT_PASS);
+            APPL_LOG("[OB]: Start config, store passkeys: %d.\r\n", onboard_store_passkeys);
+            if (onboard_store_passkeys)
+            {
+                if (onboard_store_passkey_from_wifi(DATA_ID_DEV_HTU) == false)
+                {
+                    onboard_set_state(ONBOARD_STATE_ERROR);
+                }
+            }
+            else
+            {
+                onboard_set_state(ONBOARD_STATE_COMPLETE);
+            }
             break;
         }
 
         case ONBOARD_STATE_ERROR:
         {
             APPL_LOG("[OB]: Config ERROR.\r\n");
-            spi_create_tx_packet(DATA_ID_DEV_CFG_APP, FIELD_ID_CONFIG_ERROR, OPERATION_WRITE, NULL, 0);
+            spi_create_tx_packet(DATA_ID_DEV_CFG_APP, FIELD_ID_CONFIG_ERROR, NOT_USED, NULL, 0);
             onboard_set_state(ONBOARD_STATE_IDLE);
             break;
         }
@@ -513,7 +294,7 @@ void onboard_state_handle(void)
         case ONBOARD_STATE_COMPLETE:
         {
             APPL_LOG("[OB]: Config complete.\r\n");
-            spi_create_tx_packet(DATA_ID_DEV_CFG_APP, FIELD_ID_CONFIG_COMPLETE, OPERATION_WRITE, NULL, 0);
+            spi_create_tx_packet(DATA_ID_DEV_CFG_APP, FIELD_ID_CONFIG_COMPLETE, NOT_USED, NULL, 0);
             onboard_set_state(ONBOARD_STATE_IDLE);
             break;
         }
@@ -522,7 +303,7 @@ void onboard_state_handle(void)
     }
 }
 
- const uint16_t* get_service_list(void) {
+ const uint16_t* onboard_get_service_list(void) {
      const uint16_t* serv_list = service_uuid_list_config_mode;
 
     if (ONBOARD_MODE_RUN == onboard_get_mode()) {
@@ -531,7 +312,8 @@ void onboard_state_handle(void)
     return serv_list;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+void onboard_set_store_passkeys()
+{
+    onboard_store_passkeys = true;
+}
 

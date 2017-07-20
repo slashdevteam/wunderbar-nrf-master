@@ -250,7 +250,7 @@ static api_result_t device_manager_event_handler(const dm_handle_t    * p_handle
             APPL_LOG("[AP]: [0x%02X] >> DM_EVT_LINK_SECURED\r\n", p_handle->connection_id);
             APP_ERROR_CHECK(event_result);
             APPL_LOG("[AP]: [0x%02X] << DM_EVT_DEVICE_CONTEXT_LOADED\r\n", p_handle->connection_id);
-					  current_conn_device.bonded_flag = true;
+            current_conn_device.bonded_flag = true;
             break;
         }
 
@@ -375,7 +375,7 @@ static void on_ble_evt(ble_evt_t * p_ble_evt)
             err_code = adv_report_parse(BLE_GAP_AD_TYPE_16BIT_SERVICE_UUID_COMPLETE, &adv_data, &type_data);
 
             // Verify if list of services matches target.
-            if( (err_code == NRF_SUCCESS) && (memcmp((uint8_t *)get_service_list(), type_data.p_data, type_data.data_len) == 0))
+            if( (err_code == NRF_SUCCESS) && (memcmp((uint8_t *)onboard_get_service_list(), type_data.p_data, type_data.data_len) == 0))
             {
                 err_code = adv_report_parse(BLE_GAP_AD_TYPE_COMPLETE_LOCAL_NAME, &adv_data, &type_data);
 
@@ -596,13 +596,13 @@ bool init_global(uint8_t * global, uint8_t * default_value, uint16_t size)
         return false;
     }
 
-		// Load data from corresponding block.
+    // Load data from corresponding block.
     load_status = pstorage_driver_load(global);
     if((load_status == PS_LOAD_STATUS_FAIL)||(load_status == PS_LOAD_STATUS_NOT_FOUND))
     {
         return false;
     }
-		// If there is no data use default value.
+    // If there is no data use default value.
     else if(load_status == PS_LOAD_STATUS_EMPTY)
     {
         memcpy(global, default_value, size);
@@ -694,8 +694,6 @@ static void power_manage(void)
 /**@brief Function for application main entry.
  */
 
-bool g_spi_irq_fired = false;
-
 int main(void)
 {
     // Initialization of various modules.
@@ -713,13 +711,11 @@ int main(void)
     // main loop
     while(true)
     {
-        const onboard_mode_t curr_mode = onboard_get_mode();
+        const volatile onboard_mode_t curr_mode = onboard_get_mode();
 
         if(ONBOARD_MODE_IDLE == curr_mode)
         {   
-            // if(g_spi_irq_fired)irq_handler();
             spi_check_tx_ready();
-            // if(g_spi_irq_fired)irq_handler();
             power_manage();
         }
         else

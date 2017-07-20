@@ -95,17 +95,17 @@ client_t * is_device_connected(uint8_t * device_name, uint16_t len)
     for(cnt = 0; cnt < MAX_CLIENTS; cnt++)
     {
         if(0 == memcmp(m_client[cnt].device_name,device_name, len))
-				{
-				    if(m_client[cnt].state != STATE_IDLE)
-					  {
-						    return &m_client[cnt];
-					  }
-					  else
-					  {
-						    return NULL;
-					  }
-				}
-    }
+        {
+            if(m_client[cnt].state != STATE_IDLE)
+            {
+                return &m_client[cnt];
+            }
+            else
+            {
+                return NULL;
+            }
+        }
+}
     return NULL;
 }
 
@@ -814,7 +814,7 @@ static void on_evt_write_rsp(ble_evt_t * p_ble_evt, client_t * p_client)
                     data_id_t data_id;
 
                     data_id = (data_id_t)sensor_get_name_index(p_client->device_name);
-                    spi_create_tx_packet(data_id, FIELD_ID_SENSOR_STATUS, OPERATION_WRITE, p_client->id, sizeof(sensorID_t));
+                    spi_create_tx_packet(data_id, FIELD_ID_SENSOR_STATUS, CONNECTION_OPENED, p_client->id, sizeof(sensorID_t));
                     spi_lock_tx_packet(data_id);
 
                     // All characterisitics with notification properties are enabled.
@@ -909,43 +909,45 @@ static void on_evt_read_rsp(ble_evt_t * p_ble_evt, client_t * p_client)
         case STATE_CHECK_CONFIG:
         {
             const uint8_t sensor_id = sensor_get_name_index(p_client->device_name);
-            if (0xFF == sensor_id) {
+            if (0xFF == sensor_id)
+            {
                 APPL_LOG("[CL]: Critical error, wrong device name %s \r\n", p_client->device_name);
             }
 
             const bool password_match = (0 == memcmp(sensors_passkey[sensor_id], (uint8_t *)&read_rsp->data, PASSKEY_SIZE));
 
-            if (password_match) {
+            if (password_match)
+            {
                 APPL_LOG("[CL]: Requested password for client %s matches targets 0x%X%X%X%X%X%X \r\n", p_client->device_name, read_rsp->data[0],
                 read_rsp->data[1],read_rsp->data[2],read_rsp->data[3],read_rsp->data[4],read_rsp->data[5] );
 
                 APPL_LOG("[CL]: Connection handle %d \r\n", p_client->srv_db.conn_handle );
 
-                spi_create_tx_packet(sensor_id, FIELD_ID_CONFIG_ONBOARD_DONE, 0xFF, NULL, 0);
+                spi_create_tx_packet(sensor_id, FIELD_ID_ONBOARD_DONE, NOT_USED, NULL, 0);
 
                 uint32_t err_code = sd_ble_gap_disconnect(p_client->srv_db.conn_handle, 0x13);
 
                 if (err_code == NRF_SUCCESS)
                 {
                     p_client->state = STATE_DISCONNECTING;
-                } else {
+                }
+                else
+                {
                     APPL_LOG("[CL]: Disconnect failed with status %d \r\n", err_code);
 
-                    if(err_code > NRF_ERROR_BUSY)
+                    if (err_code > NRF_ERROR_BUSY)
                     {
                         p_client->state = STATE_IDLE;
                     }
                 }
-
-                // if (get_active_client_number() < DEVICE_MANAGER_MAX_CONNECTIONS)
-                // {
-                //     scan_start();
-                // }
-            } else {
+            }
+            else
+            {
                 APPL_LOG("[CL]: Requested password differs on the target, commencing config 0x%x \r\n", (char*)find_char_by_uuid(CHARACTERISTIC_SENSOR_PASSKEY_UUID, p_client));
 
                 const uint8_t sensor_id = sensor_get_name_index(p_client->device_name);
-                if (0xFF == sensor_id) {
+                if (0xFF == sensor_id)
+                {
                     APPL_LOG("[CL]: Critical error, wrong device name %s \r\n", p_client->device_name);
                 }
 
@@ -969,20 +971,12 @@ static void on_evt_read_rsp(ble_evt_t * p_ble_evt, client_t * p_client)
             characterisitc = find_char_by_handle_value(read_rsp->handle, p_client);
             char_id = sensor_get_char_index(characterisitc->characteristic.uuid.uuid);
 
-            if(
-                (onboard_get_state() == ONBOARD_STATE_IDLE) &&
-                (data_id != DATA_ID_DEV_CFG_APP)
-              )
+            if( (onboard_get_state() == ONBOARD_STATE_IDLE) &&
+                (data_id != DATA_ID_DEV_CFG_APP) )
             {
                 spi_create_tx_packet(data_id, char_id, OPERATION_WRITE, read_rsp->data, read_rsp->len);
             }
-            else if(
-                     (onboard_get_state() != ONBOARD_STATE_IDLE) &&
-                     (data_id == DATA_ID_DEV_CFG_APP)
-                   )
-            {
-                onboard_parse_data(char_id, read_rsp->data, read_rsp->len);
-            }
+
             break;
         }
     }
@@ -1003,9 +997,9 @@ static void on_evt_hvx(ble_evt_t * p_ble_evt, client_t * p_client)
 {
     uint8_t cnt;
     if (
-			  (p_client != NULL) &&
-			  ((p_client->state == STATE_RUNNING)||(p_client->state == STATE_WAIT_WRITE_RSP)||(p_client->state == STATE_WAIT_READ_RSP))
-		   )
+            (p_client != NULL) &&
+            ((p_client->state == STATE_RUNNING)||(p_client->state == STATE_WAIT_WRITE_RSP)||(p_client->state == STATE_WAIT_READ_RSP))
+        )
     {
         data_id_t            data_id;
         ble_gattc_evt_hvx_t *     hvx;
@@ -1280,7 +1274,7 @@ uint32_t client_handling_destroy(const dm_handle_t * p_handle)
         data_id = (data_id_t)sensor_get_name_index(p_client->device_name);
         APPL_LOG("[CL]: Client %d goes to Idle: \r\n", data_id);
         memset((uint8_t *)p_client->id, 0, 8);
-        spi_create_tx_packet(data_id, FIELD_ID_SENSOR_STATUS, OPERATION_READ, NULL, 0);
+        spi_create_tx_packet(data_id, FIELD_ID_SENSOR_STATUS, CONNECTION_CLOSED, NULL, 0);
 
         p_client->state = STATE_IDLE;
     }
