@@ -30,7 +30,8 @@
 
 const uint8_t CENTRAL_BLE_FIRMWARE_REV[20] = "1.0.0";
 
-static int g_pw_mg_trace_cnt = 0;
+//used to limit torrent of power manage traces
+static int g_power_manage_trace_counter = 0;
 
 /**@breif Macro to unpack 16bit unsigned UUID from octet stream. */
 #define UUID16_EXTRACT(DST,SRC)                                                                  \
@@ -345,8 +346,6 @@ static uint32_t adv_report_parse(uint8_t type, data_t * p_advdata, data_t * p_ty
 static void on_ble_evt(ble_evt_t * p_ble_evt)
 {
     uint32_t         err_code;
-    // static uint16_t  service_uuid_list = {SHORT_SERVICE_RELAYR_UUID, BLE_UUID_DEVICE_INFORMATION_SERVICE, BLE_UUID_BATTERY_SERVICE};
-    // // static uint16_t  service_uuid_list[3] = {SHORT_SERVICE_CONFIG_UUID, BLE_UUID_DEVICE_INFORMATION_SERVICE, BLE_UUID_BATTERY_SERVICE};
 
     switch (p_ble_evt->header.evt_id)
     {
@@ -680,7 +679,8 @@ bool pstorage_driver_init()
 
 static void power_manage(void)
 {   
-    if (0x3F == ( (g_pw_mg_trace_cnt++) & 0x3F) ) {
+    if (0x3F == (++g_power_manage_trace_counter & 0x3F) )
+    {
         APPL_LOG("\r\n[AP]: power_manage\r\n\r\n");
     }
     

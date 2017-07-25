@@ -12,13 +12,10 @@
 
 #include "wunderbar_common.h"
 
-#define ONBOARD_SENSOR_PASS_LEN  6
-#define PASSKEY_SIZE ONBOARD_SENSOR_PASS_LEN
+#define PASSKEY_SIZE 6
 
 /**@brief  Default values for sensors passkeys. These values are used if corresponding block of persistent storage is empty. */
-// static const uint8_t DEFAULT_SENSOR_PASSKEY[PASSKEY_SIZE+2]   = {0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x00, 0x00};
-static const uint8_t DEFAULT_SENSOR_PASSKEY[PASSKEY_SIZE+2]   = {0x33, 0x34, 0x33, 0x34, 0x33, 0x34, 0x00, 0x00};
-// const uint8_t  DEFAULT_SENSOR_PASSKEY[8]   = {0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31};
+static const uint8_t DEFAULT_SENSOR_PASSKEY[PASSKEY_SIZE+2]   = {0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x00, 0x00};
 
 /**< Onboarding mode. */
 typedef enum

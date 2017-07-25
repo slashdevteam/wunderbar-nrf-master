@@ -1156,18 +1156,9 @@ void client_handling_ble_evt_handler(ble_evt_t * p_ble_evt)
 
 static void db_discovery_init(void)
 {
-    APPL_LOG("[CL]: Initialising DB discovery, current status: ");
     ble_db_discovery_init_t db_discovery_init_obj;
 
-    if (ble_db_is_initialised()) {
-         APPL_LOG("already initialised, restarting\r\n");
-         ble_db_discovery_close();
-    } else {
-         APPL_LOG("clean\r\n");
-    }
-
     uint32_t err_code = ble_db_discovery_init(&db_discovery_init_obj);
-    APPL_LOG("[CL]: DB discovery init done, err_code: %d\r\n", err_code);
     APP_ERROR_CHECK(err_code);
 }
 
