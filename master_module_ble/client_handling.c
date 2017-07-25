@@ -27,6 +27,8 @@
 
 extern const ble_gap_scan_params_t * m_scan_param;   /**< Scan parameters requested for scanning and connection. */
 
+extern passkey_t        sensors_passkey[MAX_CLIENTS];
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /**@brief Static global variables. */
 
@@ -62,24 +64,11 @@ bool validate_device_name(uint8_t * device_name, uint16_t len, const uint8_t ** 
 {
     uint8_t cnt;
 
-    // Check if device is in run mode?
-    if(onboard_get_mode() == ONBOARD_MODE_RUN)
+    for(cnt = 0; cnt < MAX_CLIENTS - 1; cnt++)
     {
-        for(cnt = 0; cnt < MAX_CLIENTS - 1; cnt++)
+        if((memcmp(SENSORS_DEVICE_NAME[cnt],device_name, len) == 0) && (strlen((const char *)SENSORS_DEVICE_NAME[cnt]) == len))
         {
-            if((memcmp(SENSORS_DEVICE_NAME[cnt],device_name, len) == 0) && (strlen((const char *)SENSORS_DEVICE_NAME[cnt]) == len))
-            {
-                *found_device_name = SENSORS_DEVICE_NAME[cnt];
-                return true;
-            }
-        }
-    }
-		// Check if device is in onboard (config) mode?
-    else if(onboard_get_mode() == ONBOARD_MODE_CONFIG)
-    {
-        if((memcmp(SENSORS_DEVICE_NAME[MAX_CLIENTS-1],device_name, len) == 0) && (strlen((const char *)SENSORS_DEVICE_NAME[MAX_CLIENTS-1]) == len))
-        {
-            *found_device_name = SENSORS_DEVICE_NAME[MAX_CLIENTS-1];
+            *found_device_name = SENSORS_DEVICE_NAME[cnt];
             return true;
         }
     }
@@ -106,17 +95,17 @@ client_t * is_device_connected(uint8_t * device_name, uint16_t len)
     for(cnt = 0; cnt < MAX_CLIENTS; cnt++)
     {
         if(0 == memcmp(m_client[cnt].device_name,device_name, len))
-				{
-				    if(m_client[cnt].state != STATE_IDLE)
-					  {
-						    return &m_client[cnt];
-					  }
-					  else
-					  {
-						    return NULL;
-					  }
-				}
-    }
+        {
+            if(m_client[cnt].state != STATE_IDLE)
+            {
+                return &m_client[cnt];
+            }
+            else
+            {
+                return NULL;
+            }
+        }
+}
     return NULL;
 }
 
@@ -189,15 +178,16 @@ uint16_t search_for_client_configuring(void)
  * @return Void.
  */
 
-void search_for_client_error(void)
+void search_for_client_event(void)
 {
-	  uint32_t err_code;
+    uint32_t err_code;
     uint16_t cnt;
 
     for(cnt = 0; cnt < MAX_CLIENTS; cnt++)
     {
         if(m_client[cnt].state == STATE_ERROR)
         {
+            APPL_LOG("[CL]: search_for_client_event() :sd_ble_gap_disconnect\r\n");
             err_code = sd_ble_gap_disconnect(m_client[cnt].srv_db.conn_handle, BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
             if(err_code == NRF_SUCCESS)
             {
@@ -227,6 +217,7 @@ void scan_start(void)
     if(scan_start_flag == false)
     {
         err_code = sd_ble_gap_scan_start(m_scan_param);
+        APPL_LOG("[CL]: Scan requested with err_code %d\r\n\r\n", err_code);
         APP_ERROR_CHECK(err_code);
         scan_start_flag = true;
     }
@@ -297,6 +288,20 @@ client_t * find_client_by_dev_name(const uint8_t * device_name, uint8_t len)
             (m_client[cnt].state != STATE_IDLE) &&
             ( (device_name == m_client[cnt].device_name) || (memcmp(m_client[cnt].device_name,device_name, len) == 0))
           )
+        {
+            return &m_client[cnt];
+        }
+    }
+    return NULL;
+}
+
+client_t * find_sensor_id_by_dev_name(const uint8_t * device_name)
+{
+    uint8_t cnt;
+
+    for(cnt = 0; cnt < MAX_CLIENTS; cnt++)
+    {
+        if (device_name == m_client[cnt].device_name)
         {
             return &m_client[cnt];
         }
@@ -494,10 +499,41 @@ bool write_characteristic_value(client_t * p_client, uint16_t uuid, uint8_t * da
     write_params.len      = len;
     write_params.p_value  = data;
 
+    APPL_LOG("[CL]: Write char %02x\r\n", uuid);
     err_code = sd_ble_gattc_write(p_client->srv_db.conn_handle, &write_params);
     APP_ERROR_CHECK(err_code);
 
     p_client->state = STATE_WAIT_WRITE_RSP;
+
+    return true;
+}
+
+bool write_char_value(client_t * p_client, uint16_t uuid, uint8_t * data, uint16_t len)
+{
+    uint32_t                 err_code;
+    ble_db_discovery_char_t * char_to_write;
+    ble_gattc_write_params_t write_params;
+
+    char_to_write = find_char_by_uuid(uuid, p_client);
+
+    if(
+       (char_to_write == NULL) ||
+       (char_to_write->characteristic.char_props.write == 0)
+      )
+    {
+        return false;
+    }
+
+    write_params.write_op = BLE_GATT_OP_WRITE_REQ;
+
+    write_params.handle   = char_to_write->characteristic.handle_value;
+    write_params.offset   = 0;
+    write_params.len      = len;
+    write_params.p_value  = data;
+
+    APPL_LOG("[CL]: Write char %02x\r\n", uuid);
+    err_code = sd_ble_gattc_write(p_client->srv_db.conn_handle, &write_params);
+    APP_ERROR_CHECK(err_code);
 
     return true;
 }
@@ -565,29 +601,21 @@ static void service_relayr_dsc_evt_handler(ble_db_discovery_evt_t * p_evt)
 
       case BLE_DB_DISCOVERY_COMPLETE:
       {
-          APPL_LOG("[CL]: Discovery Relayr Complete\r\n");
+        APPL_LOG("[CL]: Discovery Relayr Complete\r\n");
 
-          // If discoverred device is not "WunderbarApp" config device.
-				  if(sensor_get_name_index(p_client->device_name) != DATA_ID_DEV_CFG_APP)
-          {
-              char_to_read = find_char_by_uuid(CHARACTERISTIC_SENSOR_ID_UUID, p_client);
-              if(char_to_read != NULL)
-              {
-                  err_code = sd_ble_gattc_read(p_client->srv_db.conn_handle, char_to_read->characteristic.handle_value, 0);
-                  if(err_code == NRF_SUCCESS)
-                  {
-                      p_client->state = STATE_DEVICE_IDENTIFYING;
-                  }
-                  break;
-              }
-          }
-          else
-          {
-              APPL_LOG("[CL]: Go to running state\r\n");
-              p_client->state = STATE_RUNNING;
-          }
-
-          break;
+        char_to_read = find_char_by_uuid(CHARACTERISTIC_SENSOR_ID_UUID, p_client);
+        APPL_LOG("[CL]: Char to read 0x%X\r\n", (uint32_t)(char_to_read));
+        if(char_to_read != NULL)
+        {
+            err_code = sd_ble_gattc_read(p_client->srv_db.conn_handle, char_to_read->characteristic.handle_value, 0);
+            if(err_code == NRF_SUCCESS)
+            {
+                p_client->state = STATE_DEVICE_IDENTIFYING;
+            } else {
+                APPL_LOG("[CL]: Failure while calling gattc_read 0x%X\r\n", err_code);
+            }
+        }
+        break;
       }
 
       case BLE_DB_DISCOVERY_ERROR:
@@ -599,6 +627,54 @@ static void service_relayr_dsc_evt_handler(ble_db_discovery_evt_t * p_evt)
       case BLE_DB_DISCOVERY_SRV_NOT_FOUND:
       {
           APPL_LOG("[CL]: Relayr Not Found\r\n");
+          break;
+      }
+
+    }
+}
+
+static void service_config_dsc_evt_handler(ble_db_discovery_evt_t * p_evt)
+{
+    uint32_t   err_code;
+    client_t * p_client;
+    ble_db_discovery_char_t * char_to_read = NULL;
+
+    // Find the client using the connection handle.
+    p_client = find_client_by_conn_handle(p_evt->conn_handle);
+    p_client->state = STATE_ERROR;
+
+    switch(p_evt->evt_type)
+    {
+
+      case BLE_DB_DISCOVERY_COMPLETE:
+      {
+            APPL_LOG("[CL]: Discovery Relayr Sensor Config Complete\r\n");
+            
+            char_to_read = find_char_by_uuid(CHARACTERISTIC_SENSOR_PASSKEY_UUID, p_client);
+            APPL_LOG("[CL]: Char to read 0x%X\r\n", (uint32_t)(char_to_read));
+            if(char_to_read != NULL)
+            {
+                err_code = sd_ble_gattc_read(p_client->srv_db.conn_handle, char_to_read->characteristic.handle_value, 0);
+                if(err_code == NRF_SUCCESS)
+                {
+                    p_client->state = STATE_CHECK_CONFIG;
+                } else {
+                    APPL_LOG("[CL]: Failure while calling gattc_read 0x%X\r\n", err_code);
+                }
+            }
+
+            break;
+      }
+
+      case BLE_DB_DISCOVERY_ERROR:
+      {
+          APPL_LOG("[CL]: Discovery Error\r\n");
+          break;
+      }
+
+      case BLE_DB_DISCOVERY_SRV_NOT_FOUND:
+      {
+          APPL_LOG("[CL]: Relayr Sensor Config Not Found\r\n");
           break;
       }
 
@@ -717,7 +793,7 @@ static void on_evt_write_rsp(ble_evt_t * p_ble_evt, client_t * p_client)
 
     switch(p_client->state) {
 
-			  // Setting client to the running state.
+        // Setting client to the running state.
         case STATE_NOTIF_ENABLE:
         {
             if (write_rsp->handle !=
@@ -738,7 +814,7 @@ static void on_evt_write_rsp(ble_evt_t * p_ble_evt, client_t * p_client)
                     data_id_t data_id;
 
                     data_id = (data_id_t)sensor_get_name_index(p_client->device_name);
-                    spi_create_tx_packet(data_id, FIELD_ID_SENSOR_STATUS, OPERATION_WRITE, p_client->id, sizeof(sensorID_t));
+                    spi_create_tx_packet(data_id, FIELD_ID_SENSOR_STATUS, CONNECTION_OPENED, p_client->id, sizeof(sensorID_t));
                     spi_lock_tx_packet(data_id);
 
                     // All characterisitics with notification properties are enabled.
@@ -755,7 +831,25 @@ static void on_evt_write_rsp(ble_evt_t * p_ble_evt, client_t * p_client)
             break;
         }
 
-				// Send OK write response through SPI.
+        case STATE_CONFIGURE:
+        {
+            ble_db_discovery_char_t* char_to_read = find_char_by_uuid(CHARACTERISTIC_SENSOR_PASSKEY_UUID, p_client);
+            APPL_LOG("[CL]: Char to read 0x%X\r\n", (uint32_t)(char_to_read));
+            if(char_to_read != NULL)
+            {
+                uint32_t err_code = sd_ble_gattc_read(p_client->srv_db.conn_handle, char_to_read->characteristic.handle_value, 0);
+                if(err_code == NRF_SUCCESS)
+                {
+                    p_client->state = STATE_CHECK_CONFIG;
+                } else {
+                    APPL_LOG("[CL]: Failure while calling gattc_read 0x%X\r\n", err_code);
+                }
+            }
+
+            break;
+      }
+
+        // Send OK write response through SPI.
         case STATE_WAIT_WRITE_RSP:
         {
             spi_create_tx_packet(DATA_ID_RESPONSE_OK, 0xFF, 0xFF, NULL, 0);
@@ -787,7 +881,7 @@ static void on_evt_read_rsp(ble_evt_t * p_ble_evt, client_t * p_client)
 
     ble_gattc_evt_read_rsp_t * read_rsp = &p_ble_evt->evt.gattc_evt.params.read_rsp;
 
-    APPL_LOG("[CL]: Receive response of handle: %x -> ", p_ble_evt->evt.gattc_evt.params.read_rsp.handle);
+    APPL_LOG("[CL]: Receive response of handle: 0x%X -> ", p_ble_evt->evt.gattc_evt.params.read_rsp.handle);
     for(cnt = 0; cnt < read_rsp->len; cnt++)
     {
         APPL_LOG("%02x", read_rsp->data[cnt]);
@@ -805,11 +899,63 @@ static void on_evt_read_rsp(ble_evt_t * p_ble_evt, client_t * p_client)
 
         case STATE_DEVICE_IDENTIFYING:
         {
-
             memcpy((uint8_t *)p_client->id, (uint8_t *)&read_rsp->data, read_rsp->len);
             p_client->char_index = 0;
             p_client->srv_index  = 0;
             notif_enable(p_client);
+            break;
+        }
+
+        case STATE_CHECK_CONFIG:
+        {
+            const uint8_t sensor_id = sensor_get_name_index(p_client->device_name);
+            if (0xFF == sensor_id)
+            {
+                APPL_LOG("[CL]: Critical error, wrong device name %s \r\n", p_client->device_name);
+            }
+
+            const bool password_match = (0 == memcmp(sensors_passkey[sensor_id], (uint8_t *)&read_rsp->data, PASSKEY_SIZE));
+
+            if (password_match)
+            {
+                APPL_LOG("[CL]: Requested password for client %s matches targets 0x%X%X%X%X%X%X \r\n", p_client->device_name, read_rsp->data[0],
+                read_rsp->data[1],read_rsp->data[2],read_rsp->data[3],read_rsp->data[4],read_rsp->data[5] );
+
+                APPL_LOG("[CL]: Connection handle %d \r\n", p_client->srv_db.conn_handle );
+
+                spi_create_tx_packet(sensor_id, FIELD_ID_ONBOARD_DONE, NOT_USED, NULL, 0);
+
+                uint32_t err_code = sd_ble_gap_disconnect(p_client->srv_db.conn_handle, 0x13);
+
+                if (err_code == NRF_SUCCESS)
+                {
+                    p_client->state = STATE_DISCONNECTING;
+                }
+                else
+                {
+                    APPL_LOG("[CL]: Disconnect failed with status %d \r\n", err_code);
+
+                    if (err_code > NRF_ERROR_BUSY)
+                    {
+                        p_client->state = STATE_IDLE;
+                    }
+                }
+            }
+            else
+            {
+                APPL_LOG("[CL]: Requested password differs on the target, commencing config 0x%x \r\n", (char*)find_char_by_uuid(CHARACTERISTIC_SENSOR_PASSKEY_UUID, p_client));
+
+                const uint8_t sensor_id = sensor_get_name_index(p_client->device_name);
+                if (0xFF == sensor_id)
+                {
+                    APPL_LOG("[CL]: Critical error, wrong device name %s \r\n", p_client->device_name);
+                }
+
+                write_char_value(p_client, CHARACTERISTIC_SENSOR_PASSKEY_UUID, sensors_passkey[sensor_id], PASSKEY_SIZE);
+
+                p_client->state = STATE_CONFIGURE;
+            }
+
             break;
         }
 
@@ -825,20 +971,12 @@ static void on_evt_read_rsp(ble_evt_t * p_ble_evt, client_t * p_client)
             characterisitc = find_char_by_handle_value(read_rsp->handle, p_client);
             char_id = sensor_get_char_index(characterisitc->characteristic.uuid.uuid);
 
-            if(
-                (onboard_get_state() == ONBOARD_STATE_IDLE) &&
-                (data_id != DATA_ID_DEV_CFG_APP)
-              )
+            if( (onboard_get_state() == ONBOARD_STATE_IDLE) &&
+                (data_id != DATA_ID_DEV_CFG_APP) )
             {
                 spi_create_tx_packet(data_id, char_id, OPERATION_WRITE, read_rsp->data, read_rsp->len);
             }
-            else if(
-                     (onboard_get_state() != ONBOARD_STATE_IDLE) &&
-                     (data_id == DATA_ID_DEV_CFG_APP)
-                   )
-            {
-                onboard_parse_data(char_id, read_rsp->data, read_rsp->len);
-            }
+
             break;
         }
     }
@@ -859,9 +997,9 @@ static void on_evt_hvx(ble_evt_t * p_ble_evt, client_t * p_client)
 {
     uint8_t cnt;
     if (
-			  (p_client != NULL) &&
-			  ((p_client->state == STATE_RUNNING)||(p_client->state == STATE_WAIT_WRITE_RSP)||(p_client->state == STATE_WAIT_READ_RSP))
-		   )
+            (p_client != NULL) &&
+            ((p_client->state == STATE_RUNNING)||(p_client->state == STATE_WAIT_WRITE_RSP)||(p_client->state == STATE_WAIT_READ_RSP))
+        )
     {
         data_id_t            data_id;
         ble_gattc_evt_hvx_t *     hvx;
@@ -1032,7 +1170,7 @@ static void db_discovery_init(void)
  * @return Void.
  */
 
-void client_handling_init(void)
+void client_handling_init(onboard_mode_t onboard_mode)
 {
     uint32_t err_code;
     uint32_t i;
@@ -1050,20 +1188,29 @@ void client_handling_init(void)
     ble_uuid_t uuid;
 
     uuid.type = BLE_UUID_TYPE_BLE;
-    uuid.uuid = SHORT_SERVICE_RELAYR_UUID;
 
-    err_code = ble_db_discovery_register(&uuid, service_relayr_dsc_evt_handler);
+    ble_db_discovery_evt_handler_t main_service_dsc_evt_handle;
+    if (ONBOARD_MODE_CONFIG == onboard_mode) {
+        uuid.uuid = SHORT_SERVICE_CONFIG_UUID;
+        main_service_dsc_evt_handle = service_config_dsc_evt_handler;
+    } else {
+        uuid.uuid = SHORT_SERVICE_RELAYR_UUID;
+        main_service_dsc_evt_handle = service_relayr_dsc_evt_handler;
+    }
+
+    err_code = ble_db_discovery_register(&uuid, main_service_dsc_evt_handle);
+    APP_ERROR_CHECK(err_code);
 
     uuid.type = BLE_UUID_TYPE_BLE;
     uuid.uuid = BLE_UUID_BATTERY_SERVICE;
 
     err_code = ble_db_discovery_register(&uuid, service_deviceinf_dsc_evt_handler);
+    APP_ERROR_CHECK(err_code);
 
     uuid.type = BLE_UUID_TYPE_BLE;
     uuid.uuid = BLE_UUID_DEVICE_INFORMATION_SERVICE;
 
     err_code = ble_db_discovery_register(&uuid, service_batterylev_dsc_evt_handler);
-
     APP_ERROR_CHECK(err_code);
 }
 
@@ -1116,8 +1263,9 @@ uint32_t client_handling_destroy(const dm_handle_t * p_handle)
         data_id_t data_id;
 
         data_id = (data_id_t)sensor_get_name_index(p_client->device_name);
+        APPL_LOG("[CL]: Client %d goes to Idle: \r\n", data_id);
         memset((uint8_t *)p_client->id, 0, 8);
-        spi_create_tx_packet(data_id, FIELD_ID_SENSOR_STATUS, OPERATION_READ, NULL, 0);
+        spi_create_tx_packet(data_id, FIELD_ID_SENSOR_STATUS, CONNECTION_CLOSED, NULL, 0);
 
         p_client->state = STATE_IDLE;
     }
