@@ -855,6 +855,8 @@ static void on_evt_write_rsp(ble_evt_t * p_ble_evt, client_t * p_client)
             data_id_t sensor_id = (data_id_t)sensor_get_name_index(p_client->device_name);
 
             spi_create_tx_packet(sensor_id, FIELD_ID_SENSOR_WRITE_OK, NOT_USED, NULL, 0);
+             // lock it to prevail over notification under race condition
+            spi_lock_tx_packet(sensor_id);
             
             p_client->state = STATE_RUNNING;
             break;
