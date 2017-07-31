@@ -505,6 +505,7 @@ typedef enum
     FIELD_ID_RUN                             = 0x20,
     FIELD_ID_ONBOARD_DONE                    = 0x21,
     FIELD_ID_KILL                            = 0x22,
+    FIELD_ID_SENSOR_WRITE_OK                 = 0x23,
 
     INVALID                                  = 0xFF
 }

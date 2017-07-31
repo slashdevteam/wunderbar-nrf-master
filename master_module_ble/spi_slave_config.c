@@ -106,7 +106,9 @@ void spi_create_tx_packet(data_id_t data_id, uint8_t field_id, uint8_t operation
     else
     {
         frame_buff = &spi_clients_frame_buffer[data_id];
-        if(frame_buff->data_status == FRAME_DATA_STATUS_LOCK)
+        // SENSOR_STATUS has priority
+        if( (frame_buff->data_status == FRAME_DATA_STATUS_LOCK) &&
+            (FIELD_ID_SENSOR_STATUS != field_id) )
         {
             return;
         }
