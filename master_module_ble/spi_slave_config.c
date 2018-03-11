@@ -199,7 +199,7 @@ void spi_check_tx_ready(void)
             {
                 set_next_frame();
 
-                if( ( (spi_curr_frame->data_status == FRAME_DATA_STATUS_FULL) || 
+                if( ( (spi_curr_frame->data_status == FRAME_DATA_STATUS_FULL) ||
                       (spi_curr_frame->data_status == FRAME_DATA_STATUS_LOCK) ) && (gpio_read (SPIS_CSN_PIN) != 0) )
                 {
                     spi_tx_status = SPI_TX_STATUS_BUSY;
@@ -242,8 +242,8 @@ void SPI1_TWI1_IRQHandler(void)
 
         const bool opOk = spi_handler(spi_rx_frame.data_id, spi_rx_frame.field_id, spi_rx_frame.operation, spi_rx_frame.data);
 
-        if (DATA_ID_ERROR != spi_rx_frame.data_id  && 
-            false         == opOk) 
+        if (DATA_ID_ERROR != spi_rx_frame.data_id  &&
+            false         == opOk)
         {
             spi_create_tx_packet(DATA_ID_DEV_CFG_APP, INVALID, NOT_USED, NULL, 0);
         }
@@ -380,7 +380,13 @@ bool spi_slave_app_init(void)
     spi_tx_frame.data_id   = DATA_ID_DEV_CENTRAL;
     spi_tx_frame.field_id  = FIELD_ID_CHAR_FIRMWARE_REVISION;
     spi_tx_frame.operation = OPERATION_WRITE;
-    memcpy((uint8_t *)&spi_tx_frame.data, (uint8_t *)CENTRAL_BLE_FIRMWARE_REV, strlen((const char *)CENTRAL_BLE_FIRMWARE_REV));
+    spi_tx_frame.data[0]   = strlen((const char *)CENTRAL_BLE_FIRMWARE_REV);
+
+    if(spi_tx_frame.data[0] > (SPI_PACKET_DATA_SIZE - 1))
+    {
+        spi_tx_frame.data[0] = (SPI_PACKET_DATA_SIZE - 1);
+    }
+    memcpy((uint8_t *)&spi_tx_frame.data[1], (uint8_t *)CENTRAL_BLE_FIRMWARE_REV, spi_tx_frame.data[0]);
 
     memset((uint8_t *)&spi_rx_frame, 0xFF, sizeof(spi_rx_frame));
 

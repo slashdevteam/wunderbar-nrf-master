@@ -522,7 +522,7 @@ typedef enum
     // It is used in this manner for FIELD_ID_SENSOR_STATUS, so let's have it explicitly
     CONNECTION_OPENED = 0x0,
     CONNECTION_CLOSED = 0x1,
-    
+
     NOT_USED = 0xFF
 }
 operation_t;

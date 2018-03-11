@@ -4,7 +4,7 @@ ninja_required_version = 1.3
 
 GCC_ARM =
 target = nrf51822
-NORDIC_SDK_BASE = ../nrf51_sdk_v6_1_0_b2ec2e6
+NORDIC_SDK_BASE = nrf51_sdk_v6_1_0_b2ec2e6
 NORDIC_SDK = $NORDIC_SDK_BASE/$target
 source_dir = .
 builddir = debug
@@ -27,8 +27,8 @@ common_flags = -DNRF51 -D$board -DSOFTDEVICE_PRESENT -DDISABLE_WDOG=0 -DS$softde
     -DNDEBUG -mthumb -MP -mcpu=cortex-m0 -Wall -ffunction-sections -D__STACK_SIZE=1024 $
     -fdata-sections -ffreestanding -fno-builtin -D__HEAP_SIZE=0 -DBLE_STACK_SUPPORT_REQD $
     -mapcs -Werror -flto -fdevirtualize -fwhole-program -fno-common  $
-    -DSWI_DISABLE0 -D$cpu -DNRF_SD_BLE_API_VERSION=2 -mfloat-abi=soft -DSEGGER_RTT_LOG $
-    -Og -g -ggdb3
+    -DSWI_DISABLE0 -D$cpu -DNRF_SD_BLE_API_VERSION=2 -mfloat-abi=soft $
+    -Os
 
 include_flags = -I$source_dir $
    -I$source_dir/master_module_ble $
@@ -90,6 +90,10 @@ rule flashsd
   command = JLinkExe -commanderscript flashs120softdevice.jlink
   description = FLASH $in
 
+rule combinehex
+  command = srec_cat $softdevice_hex -intel $in -intel -o $out -intel
+  description = COMBINE $out
+
 build $builddir/master_module_ble/main.o: cc $source_dir/master_module_ble/main.c
 build $builddir/master_module_ble/onboard.o: cc $source_dir/master_module_ble/onboard.c
 build $builddir/master_module_ble/client_handling.o: cc $source_dir/master_module_ble/client_handling.c
@@ -104,7 +108,6 @@ build $builddir/Source/templates/system_nrf51.o: cc $NORDIC_SDK/Source/templates
 build $builddir/startup_nrf51.o: as $source_dir/startup_nrf51.s
 build $builddir/common/pstorage_driver.o: cc $source_dir/common/pstorage_driver.c
 build $builddir/common/ble_db_discovery.o: cc $source_dir/common/ble_db_discovery.c
-build $builddir/common/debug.o: cc $source_dir/common/debug.c
 build $builddir/common/gpio.o: cc $source_dir/common/gpio.c
 build $builddir/Source/app_common/pstorage.o: cc $NORDIC_SDK/Source/app_common/pstorage.c
 build $builddir/Source/sd_common/softdevice_handler.o: cc $NORDIC_SDK/Source/sd_common/softdevice_handler.c
@@ -112,7 +115,6 @@ build $builddir/Source/sd_common/softdevice_handler.o: cc $NORDIC_SDK/Source/sd_
 build $builddir/$board/$bin_name: link $
     $builddir/master_module_ble/main.o $
     $builddir/Source/templates/system_nrf51.o $
-    $builddir/common/debug.o $
     $builddir/Source/sd_common/softdevice_handler.o $
     $builddir/Source/app_common/pstorage.o $
     $builddir/master_module_ble/onboard.o $
@@ -132,11 +134,14 @@ build $builddir/$board/$bin_name: link $
 build $builddir/$board/$bin_name.hex: hexobj $
     $builddir/$board/$bin_name
 
+build $builddir/$board/${bin_name}_combined.hex: combinehex $
+  $builddir/$board/$bin_name.hex
+
 build flash: flash $builddir/$board/$bin_name.hex
 
 build flashsoftdevice: flashsd $softdevice_hex
 
-build nrf51822: phony $builddir/$board/$bin_name.hex
+build nrf51822: phony $builddir/$board/${bin_name}_combined.hex
 
 build all: phony nrf51822
 

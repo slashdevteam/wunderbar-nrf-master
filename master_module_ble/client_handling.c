@@ -217,7 +217,7 @@ void scan_start(void)
     if(scan_start_flag == false)
     {
         err_code = sd_ble_gap_scan_start(m_scan_param);
-        APPL_LOG("[CL]: Scan requested with err_code %d\r\n\r\n", err_code);
+        APPL_LOG("[CL]: Scan requested with err_code %lu\r\n\r\n", err_code);
         APP_ERROR_CHECK(err_code);
         scan_start_flag = true;
     }
@@ -604,7 +604,7 @@ static void service_relayr_dsc_evt_handler(ble_db_discovery_evt_t * p_evt)
         APPL_LOG("[CL]: Discovery Relayr Complete\r\n");
 
         char_to_read = find_char_by_uuid(CHARACTERISTIC_SENSOR_ID_UUID, p_client);
-        APPL_LOG("[CL]: Char to read 0x%X\r\n", (uint32_t)(char_to_read));
+        APPL_LOG("[CL]: Char to read 0x%lX\r\n", (uint32_t)(char_to_read));
         if(char_to_read != NULL)
         {
             err_code = sd_ble_gattc_read(p_client->srv_db.conn_handle, char_to_read->characteristic.handle_value, 0);
@@ -612,7 +612,7 @@ static void service_relayr_dsc_evt_handler(ble_db_discovery_evt_t * p_evt)
             {
                 p_client->state = STATE_DEVICE_IDENTIFYING;
             } else {
-                APPL_LOG("[CL]: Failure while calling gattc_read 0x%X\r\n", err_code);
+                APPL_LOG("[CL]: Failure while calling gattc_read 0x%lX\r\n", err_code);
             }
         }
         break;
@@ -649,9 +649,9 @@ static void service_config_dsc_evt_handler(ble_db_discovery_evt_t * p_evt)
       case BLE_DB_DISCOVERY_COMPLETE:
       {
             APPL_LOG("[CL]: Discovery Relayr Sensor Config Complete\r\n");
-            
+
             char_to_read = find_char_by_uuid(CHARACTERISTIC_SENSOR_PASSKEY_UUID, p_client);
-            APPL_LOG("[CL]: Char to read 0x%X\r\n", (uint32_t)(char_to_read));
+            APPL_LOG("[CL]: Char to read 0x%lX\r\n", (uint32_t)(char_to_read));
             if(char_to_read != NULL)
             {
                 err_code = sd_ble_gattc_read(p_client->srv_db.conn_handle, char_to_read->characteristic.handle_value, 0);
@@ -659,7 +659,7 @@ static void service_config_dsc_evt_handler(ble_db_discovery_evt_t * p_evt)
                 {
                     p_client->state = STATE_CHECK_CONFIG;
                 } else {
-                    APPL_LOG("[CL]: Failure while calling gattc_read 0x%X\r\n", err_code);
+                    APPL_LOG("[CL]: Failure while calling gattc_read 0x%lX\r\n", err_code);
                 }
             }
 
@@ -834,7 +834,7 @@ static void on_evt_write_rsp(ble_evt_t * p_ble_evt, client_t * p_client)
         case STATE_CONFIGURE:
         {
             ble_db_discovery_char_t* char_to_read = find_char_by_uuid(CHARACTERISTIC_SENSOR_PASSKEY_UUID, p_client);
-            APPL_LOG("[CL]: Char to read 0x%X\r\n", (uint32_t)(char_to_read));
+            APPL_LOG("[CL]: Char to read 0x%lX\r\n", (uint32_t)(char_to_read));
             if(char_to_read != NULL)
             {
                 uint32_t err_code = sd_ble_gattc_read(p_client->srv_db.conn_handle, char_to_read->characteristic.handle_value, 0);
@@ -842,7 +842,7 @@ static void on_evt_write_rsp(ble_evt_t * p_ble_evt, client_t * p_client)
                 {
                     p_client->state = STATE_CHECK_CONFIG;
                 } else {
-                    APPL_LOG("[CL]: Failure while calling gattc_read 0x%X\r\n", err_code);
+                    APPL_LOG("[CL]: Failure while calling gattc_read 0x%lX\r\n", err_code);
                 }
             }
 
@@ -854,10 +854,11 @@ static void on_evt_write_rsp(ble_evt_t * p_ble_evt, client_t * p_client)
         {
             data_id_t sensor_id = (data_id_t)sensor_get_name_index(p_client->device_name);
 
-            spi_create_tx_packet(sensor_id, FIELD_ID_SENSOR_WRITE_OK, NOT_USED, NULL, 0);
+            uint8_t status = (p_ble_evt->evt.gattc_evt.gatt_status == BLE_GATT_STATUS_SUCCESS) ? 1 : 0;
+            spi_create_tx_packet(sensor_id, FIELD_ID_SENSOR_WRITE_OK, OPERATION_WRITE, &status, sizeof(status));
              // lock it to prevail over notification under race condition
             spi_lock_tx_packet(sensor_id);
-            
+
             p_client->state = STATE_RUNNING;
             break;
         }
@@ -938,7 +939,7 @@ static void on_evt_read_rsp(ble_evt_t * p_ble_evt, client_t * p_client)
                 }
                 else
                 {
-                    APPL_LOG("[CL]: Disconnect failed with status %d \r\n", err_code);
+                    APPL_LOG("[CL]: Disconnect failed with status %lu \r\n", err_code);
 
                     if (err_code > NRF_ERROR_BUSY)
                     {
@@ -948,7 +949,7 @@ static void on_evt_read_rsp(ble_evt_t * p_ble_evt, client_t * p_client)
             }
             else
             {
-                APPL_LOG("[CL]: Requested password differs on the target, commencing config 0x%x \r\n", (char*)find_char_by_uuid(CHARACTERISTIC_SENSOR_PASSKEY_UUID, p_client));
+                APPL_LOG("[CL]: Requested password differs on the target, commencing config 0x%s \r\n", (char*)find_char_by_uuid(CHARACTERISTIC_SENSOR_PASSKEY_UUID, p_client));
 
                 const uint8_t sensor_id = sensor_get_name_index(p_client->device_name);
                 if (0xFF == sensor_id)

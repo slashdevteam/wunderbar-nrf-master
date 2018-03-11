@@ -28,7 +28,7 @@
 #define MAX_PEER_COUNT                   DEVICE_MANAGER_MAX_CONNECTIONS                 /**< Maximum number of peer's application intends to manage. */
 #define UUID16_SIZE                      2                                              /**< Size of 16 bit UUID */
 
-const uint8_t CENTRAL_BLE_FIRMWARE_REV[20] = "1.0.0";
+const char CENTRAL_BLE_FIRMWARE_REV[20] = "1.0.2";
 
 //used to limit torrent of power manage traces
 static int g_power_manage_trace_counter = 0;
@@ -77,7 +77,7 @@ passkey_t  sensors_passkey[MAX_CLIENTS] __attribute__((aligned(4)));
 
 void app_error_handler(uint32_t error_code, uint32_t line_num, const uint8_t * p_file_name)
 {
-    APPL_LOG("[AP]: ASSERT: %s, %d, error 0x%08x\r\n", p_file_name, line_num, error_code);
+    APPL_LOG("[AP]: ASSERT: %s, %lu, error 0x%08lx\r\n", p_file_name, line_num, error_code);
 
     // This call can be used for debug purposes during development of an application.
     // @note CAUTION: Activating this code will write the stack to flash on an error.
@@ -190,7 +190,7 @@ static api_result_t device_manager_event_handler(const dm_handle_t    * p_handle
 
         case DM_EVT_SECURITY_SETUP_COMPLETE:
         {
-            APPL_LOG("[AP]: [0x%02X] >> DM_EVT_SECURITY_SETUP_COMPLETE, result 0x%08X\r\n", p_handle->connection_id, event_result);
+            APPL_LOG("[AP]: [0x%02X] >> DM_EVT_SECURITY_SETUP_COMPLETE, result 0x%08lX\r\n", p_handle->connection_id, event_result);
 
             if(event_result == NRF_SUCCESS)
             {
@@ -210,7 +210,7 @@ static api_result_t device_manager_event_handler(const dm_handle_t    * p_handle
                 sd_ble_gap_disconnect(p_handle->connection_id, 0x13);
             }
 
-            APPL_LOG("[AP]: [0x%02X] << DM_EVT_SECURITY_SETUP_COMPLETE status: 0x%X\r\n", p_handle->connection_id, event_result);
+            APPL_LOG("[AP]: [0x%02X] << DM_EVT_SECURITY_SETUP_COMPLETE status: 0x%lX\r\n", p_handle->connection_id, event_result);
 
             break;
         }
@@ -224,7 +224,7 @@ static api_result_t device_manager_event_handler(const dm_handle_t    * p_handle
 
         case DM_EVT_LINK_SECURED:
         {
-            APPL_LOG("[AP]: [0x%02X] >> DM_LINK_SECURED_IND bonded: %s, result 0x%08X\r\n", p_handle->connection_id, current_conn_device.bonded_flag == true? "true":"false",event_result);
+            APPL_LOG("[AP]: [0x%02X] >> DM_LINK_SECURED_IND bonded: %s, result 0x%08lX\r\n", p_handle->connection_id, current_conn_device.bonded_flag == true? "true":"false",event_result);
             APPL_LOG("[AP]: [0x%02X] << DM_LINK_SECURED_IND bonded: %s\r\n", p_handle->connection_id, current_conn_device.bonded_flag == true? "true":"false");
 
                 if(current_conn_device.bonded_flag == true)
@@ -241,7 +241,7 @@ static api_result_t device_manager_event_handler(const dm_handle_t    * p_handle
 
         case DM_EVT_SECURITY_SETUP_REFRESH:
         {
-            APPL_LOG("[AP]: [0x%02X] >> DM_EVT_SECURITY_SETUP_REFRESH, result 0x%08X\r\n", p_handle->connection_id, event_result);
+            APPL_LOG("[AP]: [0x%02X] >> DM_EVT_SECURITY_SETUP_REFRESH, result 0x%08lX\r\n", p_handle->connection_id, event_result);
             APPL_LOG("[AP]: [0x%02X] << DM_EVT_SECURITY_SETUP_REFRESH\r\n", p_handle->connection_id);
             break;
         }
@@ -406,7 +406,7 @@ static void on_ble_evt(ble_evt_t * p_ble_evt)
                         }
                         else
                         {
-                                APPL_LOG("[AP]: Connection Request Failed, reason %d\r\n", err_code);
+                                APPL_LOG("[AP]: Connection Request Failed, reason %lu\r\n", err_code);
                         }
 
                     }
@@ -549,8 +549,8 @@ static void device_manager_init(const ble_gap_sec_params_t * sec_params)
     init_param.clear_persistent_data = true;
 
     err_code = dm_init(&init_param);
-    APPL_LOG("[DM]: init, status: %d \r\n", err_code);
-    
+    APPL_LOG("[DM]: init, status: %lu \r\n", err_code);
+
     APP_ERROR_CHECK(err_code);
 
     memset(&param.sec_param, 0, sizeof (ble_gap_sec_params_t));
@@ -569,7 +569,7 @@ static void device_manager_init(const ble_gap_sec_params_t * sec_params)
     param.sec_param.kdist_periph.id    = 1;
 
     err_code = dm_register(&m_dm_app_id,&param);
-    APPL_LOG("[DM]: register, status: %d \r\n", err_code);
+    APPL_LOG("[DM]: register, status: %lu \r\n", err_code);
     APP_ERROR_CHECK(err_code);
 }
 
@@ -678,12 +678,12 @@ bool pstorage_driver_init()
  */
 
 static void power_manage(void)
-{   
+{
     if (0x3F == (++g_power_manage_trace_counter & 0x3F) )
     {
         APPL_LOG("\r\n[AP]: power_manage\r\n\r\n");
     }
-    
+
     uint32_t err_code = sd_app_evt_wait();
     APP_ERROR_CHECK(err_code);
 }
@@ -714,7 +714,7 @@ int main(void)
         const volatile onboard_mode_t curr_mode = onboard_get_mode();
 
         if(ONBOARD_MODE_IDLE == curr_mode)
-        {   
+        {
             spi_check_tx_ready();
             power_manage();
         }
